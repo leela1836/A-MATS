@@ -98,8 +98,8 @@ def test_evaluation_gate_can_veto_the_llm(monkeypatch):
             },
             model="gpt-4o", prompt_tokens=10, completion_tokens=5, cost_usd=0.0,
         )
+    # complete_json is faked, so no provider key is involved.
     monkeypatch.setattr(reasoning, "complete_json", fake)
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     final = GRAPH.invoke(new_state(["RELIANCE.NS"]))
     assert final["halted"] is True

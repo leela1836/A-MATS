@@ -54,6 +54,9 @@ def fake_market(monkeypatch):
 def no_llm(monkeypatch):
     """Force the deterministic fallback so tests never spend tokens.
 
-    Opt back in per-test with `monkeypatch.setenv("OPENAI_API_KEY", ...)`.
+    Must clear EVERY provider key — the active provider comes from config,
+    so leaving any one set would let the suite make real API calls.
     """
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    for env in ("OPENAI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY",
+                "AZURE_OPENAI_API_KEY"):
+        monkeypatch.delenv(env, raising=False)

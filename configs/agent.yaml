@@ -3,8 +3,9 @@
 
 # ─── LLM Configuration ───
 llm:
-  provider: openai  # Options: openai, azure_openai, anthropic
-  model: gpt-4o
+  provider: google  # Options: google, openai
+  # Google reads GOOGLE_API_KEY; OpenAI reads OPENAI_API_KEY (both from .env).
+  model: gemini-2.5-flash  # Alternatives: gemini-2.5-pro, gemini-2.5-flash-lite
   temperature: 0.2
   max_tokens: 4096
   timeout_seconds: 60
@@ -26,7 +27,7 @@ llm:
 # ─── Supervisor Agent ───
 supervisor:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.1
   max_iterations: 10
   timeout_seconds: 120
@@ -37,7 +38,7 @@ supervisor:
 # ─── Market Agent ───
 market_agent:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.1
   prompt_version: v1
   data_refresh_interval_seconds: 300
@@ -48,7 +49,7 @@ market_agent:
 # ─── News Agent ───
 news_agent:
   enabled: true
-  model: gpt-4o-mini
+  model: gemini-2.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   sources:
@@ -63,7 +64,7 @@ news_agent:
 # ─── Knowledge Agent ───
 knowledge_agent:
   enabled: true
-  model: gpt-4o-mini
+  model: gemini-2.5-flash-lite
   temperature: 0.3
   prompt_version: v1
   max_results: 5
@@ -76,7 +77,7 @@ knowledge_agent:
 # ─── Memory Agent ───
 memory_agent:
   enabled: true
-  model: gpt-4o-mini
+  model: gemini-2.5-flash-lite
   temperature: 0.2
   prompt_version: v1
   short_term_ttl_minutes: 60
@@ -86,7 +87,7 @@ memory_agent:
 # ─── Reasoning Engine ───
 reasoning_engine:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.2
   prompt_version: v1
   reasoning_depth: detailed  # Options: quick, balanced, detailed
@@ -96,7 +97,7 @@ reasoning_engine:
 # ─── Evaluation Engine ───
 evaluation_engine:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.1
   prompt_version: v1
   scoring_method: weighted  # Options: simple, weighted, ensemble
@@ -111,7 +112,7 @@ evaluation_engine:
 # ─── Risk Engine ───
 risk_engine:
   enabled: true
-  model: gpt-4o-mini
+  model: gemini-2.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   risk_assessment_depth: standard  # Options: quick, standard, thorough
@@ -120,7 +121,7 @@ risk_engine:
 # ─── Decision Engine ───
 decision_engine:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.1
   prompt_version: v1
   min_approval_threshold: 0.7
@@ -130,7 +131,7 @@ decision_engine:
 # ─── Reflection Engine ───
 reflection_engine:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.3
   prompt_version: v1
   reflection_frequency: per_trade  # Options: per_trade, daily, weekly
@@ -140,7 +141,7 @@ reflection_engine:
 # ─── Learning Engine ───
 learning_engine:
   enabled: true
-  model: gpt-4o
+  model: gemini-2.5-flash
   temperature: 0.3
   prompt_version: v1
   consolidation_interval_hours: 24

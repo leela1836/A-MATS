@@ -1,7 +1,11 @@
-"""Thin OpenAI wrapper returning parsed JSON plus token/cost accounting.
+"""Multi-provider LLM wrapper returning parsed JSON plus token/cost accounting.
 
-Deliberately minimal: the agents own their prompts and schemas, this layer
-only handles transport, JSON parsing, retries, and usage metering.
+Provider is chosen by `configs/agent.yaml -> llm.provider` ("google" or
+"openai"). Both paths return the same LLMResult so agents stay
+provider-agnostic.
+
+Deliberately minimal: agents own their prompts and schemas; this layer only
+handles transport, JSON parsing, retries, and usage metering.
 
 If no API key is configured, `LLMUnavailable` is raised so callers can fall
 back to deterministic logic instead of failing the trading cycle.
@@ -15,14 +19,24 @@ from typing import Any, Optional
 
 from app.config import get_config
 
-# USD per 1M tokens. Update when pricing changes.
+# USD per 1M tokens, (input, output). Approximate — update when pricing moves.
 _PRICING: dict[str, tuple[float, float]] = {
+    # Google
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-2.5-pro": (1.25, 10.00),
+    "gemini-2.0-flash": (0.10, 0.40),
+    # OpenAI
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4.1": (2.00, 8.00),
     "gpt-4.1-mini": (0.40, 1.60),
 }
-_DEFAULT_PRICING = (2.50, 10.00)
+_DEFAULT_PRICING = (0.30, 2.50)
+
+_GEMINI_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
 
 
 class LLMUnavailable(RuntimeError):
@@ -36,6 +50,7 @@ class LLMResult:
     prompt_tokens: int
     completion_tokens: int
     cost_usd: float
+    provider: str = ""
 
 
 def _cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -43,13 +58,18 @@ def _cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     return (prompt_tokens / 1_000_000) * inp + (completion_tokens / 1_000_000) * out
 
 
-def api_key() -> Optional[str]:
-    key = os.getenv("OPENAI_API_KEY", "").strip()
-    return key or None
+def provider_name() -> str:
+    return str(get_config("agent").get("llm", {}).get("provider", "google")).lower()
 
 
-def is_available() -> bool:
-    return api_key() is not None
+def api_key(provider: Optional[str] = None) -> Optional[str]:
+    provider = provider or provider_name()
+    env = "GOOGLE_API_KEY" if provider == "google" else "OPENAI_API_KEY"
+    return os.getenv(env, "").strip() or None
+
+
+def is_available(provider: Optional[str] = None) -> bool:
+    return api_key(provider) is not None
 
 
 def complete_json(
@@ -60,50 +80,116 @@ def complete_json(
     temperature: Optional[float] = None,
     max_retries: int = 2,
 ) -> LLMResult:
-    """Call the model and parse a JSON object response."""
-    key = api_key()
+    """Call the configured provider and parse a JSON object response."""
+    provider = provider_name()
+    key = api_key(provider)
     if key is None:
-        raise LLMUnavailable("OPENAI_API_KEY is not set")
+        env = "GOOGLE_API_KEY" if provider == "google" else "OPENAI_API_KEY"
+        raise LLMUnavailable(f"{env} is not set")
 
     llm_cfg = get_config("agent").get("llm", {})
-    model = model or llm_cfg.get("model", "gpt-4o")
+    model = model or llm_cfg.get("model", "gemini-2.5-flash")
     temperature = llm_cfg.get("temperature", 0.2) if temperature is None else temperature
     timeout = float(llm_cfg.get("timeout_seconds", 60))
+    max_tokens = int(llm_cfg.get("max_tokens", 4096))
 
+    payload_text = json.dumps(user_payload)
+    last_err: Optional[Exception] = None
+
+    for _ in range(max_retries):
+        try:
+            if provider == "google":
+                raw, pt, ct = _gemini_call(
+                    key, model, system_prompt, payload_text, temperature, max_tokens, timeout
+                )
+            else:
+                raw, pt, ct = _openai_call(
+                    key, model, system_prompt, payload_text, temperature, timeout
+                )
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise json.JSONDecodeError("expected a JSON object", raw, 0)
+            return LLMResult(
+                data=data, model=model, prompt_tokens=pt, completion_tokens=ct,
+                cost_usd=_cost(model, pt, ct), provider=provider,
+            )
+        except json.JSONDecodeError as exc:
+            last_err = exc  # malformed JSON: retry
+        except LLMUnavailable:
+            raise
+        except Exception as exc:
+            raise LLMUnavailable(f"LLM call failed: {exc}") from exc
+
+    raise LLMUnavailable(f"LLM returned unparseable JSON: {last_err}")
+
+
+def _gemini_call(
+    key: str, model: str, system_prompt: str, user_text: str,
+    temperature: float, max_tokens: int, timeout: float,
+) -> tuple[str, int, int]:
+    import httpx
+
+    body = {
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "generationConfig": {
+            "temperature": temperature,
+            "responseMimeType": "application/json",
+            "maxOutputTokens": max_tokens,
+            # Structured extraction needs no deliberation; keeps latency and
+            # token spend down. Raise if a task genuinely needs reasoning time.
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
+    }
+    resp = httpx.post(
+        _GEMINI_ENDPOINT.format(model=model),
+        params={"key": key}, json=body, timeout=timeout,
+    )
+    if resp.status_code != 200:
+        detail = resp.text[:200]
+        raise LLMUnavailable(f"Gemini HTTP {resp.status_code}: {detail}")
+
+    data = resp.json()
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise LLMUnavailable(f"Gemini returned no candidates: {str(data)[:160]}")
+
+    parts = candidates[0].get("content", {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in parts)
+    if not text.strip():
+        reason = candidates[0].get("finishReason", "?")
+        raise LLMUnavailable(f"Gemini returned empty text (finishReason={reason})")
+
+    usage = data.get("usageMetadata", {})
+    return (
+        text,
+        int(usage.get("promptTokenCount", 0)),
+        int(usage.get("candidatesTokenCount", 0)),
+    )
+
+
+def _openai_call(
+    key: str, model: str, system_prompt: str, user_text: str,
+    temperature: float, timeout: float,
+) -> tuple[str, int, int]:
     try:
         from openai import OpenAI
     except ImportError as exc:  # pragma: no cover
         raise LLMUnavailable("openai package not installed") from exc
 
     client = OpenAI(api_key=key, timeout=timeout)
-
-    last_err: Optional[Exception] = None
-    for _ in range(max_retries):
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                temperature=temperature,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": json.dumps(user_payload)},
-                ],
-            )
-            content = resp.choices[0].message.content or "{}"
-            data = json.loads(content)
-            usage = resp.usage
-            pt = getattr(usage, "prompt_tokens", 0) or 0
-            ct = getattr(usage, "completion_tokens", 0) or 0
-            return LLMResult(
-                data=data,
-                model=model,
-                prompt_tokens=pt,
-                completion_tokens=ct,
-                cost_usd=_cost(model, pt, ct),
-            )
-        except json.JSONDecodeError as exc:
-            last_err = exc  # malformed JSON: retry
-        except Exception as exc:
-            raise LLMUnavailable(f"LLM call failed: {exc}") from exc
-
-    raise LLMUnavailable(f"LLM returned unparseable JSON: {last_err}")
+    resp = client.chat.completions.create(
+        model=model,
+        temperature=temperature,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text},
+        ],
+    )
+    usage = resp.usage
+    return (
+        resp.choices[0].message.content or "{}",
+        getattr(usage, "prompt_tokens", 0) or 0,
+        getattr(usage, "completion_tokens", 0) or 0,
+    )
