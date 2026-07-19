@@ -173,6 +173,43 @@ veto gate · risk + ASM/restricted screen · in-app INR paper broker · backtest
 
 ---
 
+## 5b. Progress against the original 14-phase plan
+
+**7 of 14 complete (~50%), 2 partial, 5 not started.**
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Foundations, configs | ✅ complete |
+| 1 | FastAPI + Next.js dashboard | ✅ complete |
+| 2 | Data collectors | ⚠️ ~50% — market ✅ news ✅; **macro ❌ PostgreSQL ❌** |
+| 3 | RAG book brain (Qdrant) | ❌ not started |
+| 4 | Indicators & strategies | ⚠️ ~40% — EMA/RSI/ATR ✅; **MACD ❌ candlesticks ❌ S/R ❌** |
+| 5 | State model + orchestrator | ✅ ~90% — no dynamic supervisor node |
+| 6 | Reasoning + Evaluation | ✅ complete (evaluation is rule-based, not LLM) |
+| 7 | Risk + Decision | ✅ complete (exceeded — ASM/compliance screen) |
+| 8 | Replay simulation mode | ❌ not started (backtester overlaps) |
+| 9 | Backtester + analytics | ✅ complete (exceeded — A/B harness) |
+| 10 | Post-trade reflection | ❌ not started |
+| 11 | Long-term memory | ❌ not started |
+| 12 | Paper trading | ✅ complete (built early, exceeded) |
+| 13 | Live broker + Docker | ❌ not started |
+
+**Built out of order on purpose.** Phases 9 and 12 came early, which is *why*
+the profitability problem surfaced now rather than at Week 19.
+
+**Structural deviations:** Evaluation/Risk/Decision are nodes in
+`workflows/nodes.py`, not separate `agents/*.py` files — functionally complete,
+organised differently. **PostgreSQL was skipped**; the portfolio persists to
+JSON. Fine now, needs replacing before multi-symbol scale or stored history.
+
+**Built outside the plan:** `market_calendar.py`, `nse_official.py`,
+multi-provider `llm/client.py` with quota fallback, `observability/trace.py`,
+and the A/B measurement methodology.
+
+⚠️ Phase count is not the blocker. Phases 3, 10 and 11 make the agent
+*smarter*; none make the signal *profitable*. That problem sits outside the
+plan entirely.
+
 ## 6. Next steps, in priority order
 
 1. **Attack profitability** — the real blocker. Options: different strategy
