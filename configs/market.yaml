@@ -1,0 +1,123 @@
+# A-MATS Market Configuration
+# Defines market data sources, symbols, timeframes, and data feed parameters
+
+# ─── Market Data Sources ───
+data_sources:
+  yahoo_finance:
+    enabled: true
+    rate_limit_per_minute: 2000
+    timeout_seconds: 30
+    retry_attempts: 3
+    retry_backoff_base: 2.0
+
+  alpha_vantage:
+    enabled: false
+    api_key_env: ALPHA_VANTAGE_API_KEY
+    rate_limit_per_minute: 5
+    timeout_seconds: 30
+
+  polygon:
+    enabled: false
+    api_key_env: POLYGON_API_KEY
+    rate_limit_per_minute: 5
+    timeout_seconds: 30
+
+  websocket_feed:
+    enabled: false
+    provider: polygon  # Options: polygon, alpaca, ibkr
+    api_key_env: WS_API_KEY
+    reconnect_delay_seconds: 5
+    max_reconnect_attempts: 10
+
+# ─── Tradable Symbols ───
+symbols:
+  equities:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - NVDA
+    - META
+    - TSLA
+    - JPM
+    - V
+    - SPY
+
+  indices:
+    - ^GSPC   # S&P 500
+    - ^IXIC   # NASDAQ
+    - ^DJI    # Dow Jones
+    - ^VIX    # Volatility Index
+
+  crypto:
+    - BTC-USD
+    - ETH-USD
+
+  forex:
+    enabled: false
+    pairs:
+      - EURUSD=X
+      - GBPUSD=X
+      - JPYUSD=X
+
+# ─── Timeframes ───
+timeframes:
+  intraday:
+    - 1m
+    - 5m
+    - 15m
+    - 1h
+  daily:
+    - 1d
+  weekly:
+    - 1wk
+  default: 1d
+
+# ─── Data Fetching ───
+data_fetching:
+  lookback_days: 365
+  batch_size: 10  # Symbols per batch request
+  cache_ttl_seconds: 60
+  preload_on_startup: true
+  preload_symbols:
+    - SPY
+    - AAPL
+    - MSFT
+    - ^VIX
+
+# ─── Technical Indicators (TA-Lib) ───
+indicators:
+  trend:
+    - sma
+    - ema
+    - macd
+    - adx
+  momentum:
+    - rsi
+    - stoch
+    - cci
+    - williams_r
+  volatility:
+    - bollinger_bands
+    - atr
+  volume:
+    - obv
+    - volume_profile
+  custom:
+    enabled: true
+    max_lookback: 100
+
+# ─── Market Hours ───
+market_hours:
+  regular:
+    open: "09:30"
+    close: "16:00"
+    timezone: America/New_York
+  pre_market:
+    enabled: false
+    open: "04:00"
+    close: "09:30"
+  after_hours:
+    enabled: false
+    open: "16:00"
+    close: "20:00"

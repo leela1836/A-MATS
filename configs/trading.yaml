@@ -1,0 +1,128 @@
+# A-MATS Trading Configuration
+# Defines trading modes, execution parameters, and strategy settings
+
+# ─── Trading Mode ───
+mode:
+  current: simulation  # Options: simulation, paper, live
+  simulation:
+    initial_balance: 100000.0
+    slippage_model: fixed  # Options: fixed, percentage, market_impact
+    fixed_slippage: 0.01   # $0.01 per share
+    percentage_slippage: 0.001  # 0.1%
+    commission_per_trade: 0.0
+    fill_rate: 0.95        # 95% of orders fill
+    latency_ms: 50
+  paper:
+    initial_balance: 100000.0
+    broker: alpaca  # Options: alpaca, tradier
+    api_key_env: PAPER_API_KEY
+    api_secret_env: PAPER_API_SECRET
+    base_url: https://paper-api.alpaca.markets
+  live:
+    enabled: false
+    broker: alpaca
+    api_key_env: LIVE_API_KEY
+    api_secret_env: LIVE_API_SECRET
+    base_url: https://api.alpaca.markets
+    require_confirmation: true
+
+# ─── Execution ───
+execution:
+  order_types:
+    default: limit  # Options: market, limit, stop
+    allow_market_orders: true
+    allow_limit_orders: true
+    allow_stop_orders: true
+  limit_order:
+    offset_ticks: 2  # Place limit order 2 ticks from market
+    max_wait_seconds: 300
+    cancel_if_not_filled: true
+  order_routing:
+    preferred_broker: alpaca
+    fallback_broker: null
+  time_in_force:
+    default: day  # Options: day, gtc, ioc, fok
+    allow_gtc: true
+    allow_ioc: true
+    allow_fok: false
+
+# ─── Strategy ───
+strategy:
+  default: multi_agent  # Options: multi_agent, trend_following, mean_reversion, breakout
+  multi_agent:
+    consensus_required: majority  # Options: unanimous, majority, weighted
+    min_agreeing_agents: 3
+    weight_by_historical_performance: true
+  trend_following:
+    enabled: true
+    fast_period: 20
+    slow_period: 50
+    signal_threshold: 0.5
+  mean_reversion:
+    enabled: true
+    lookback_period: 20
+    entry_std_dev: 2.0
+    exit_std_dev: 0.5
+  breakout:
+    enabled: true
+    lookback_period: 20
+    breakout_threshold_percent: 2.0
+    volume_confirmation: true
+
+# ─── Portfolio Management ───
+portfolio:
+  rebalance_frequency: weekly  # Options: daily, weekly, monthly
+  rebalance_threshold_percent: 5.0
+  profit_taking:
+    enabled: true
+    target_monthly_return_percent: 5.0
+    excess_profit_reinvest_percent: 50.0
+  loss_management:
+    max_monthly_loss_percent: 8.0
+    reduce_size_after_loss: true
+    reduction_factor: 0.5
+    recovery_trades_required: 3
+
+# ─── Scheduling ───
+scheduling:
+  trading_hours_only: true
+  pre_market_trading: false
+  after_hours_trading: false
+  analysis_frequency_minutes: 15
+  market_open_analysis: true
+  market_close_analysis: true
+  weekend_trading: false
+  holidays:
+    - New_Years_Day
+    - Martin_Luther_King_Day
+    - Presidents_Day
+    - Good_Friday
+    - Memorial_Day
+    - Juneteenth
+    - Independence_Day
+    - Labor_Day
+    - Thanksgiving
+    - Christmas
+
+# ─── Notifications ───
+notifications:
+  enabled: true
+  channels:
+    - console
+    - log
+  events:
+    - trade_opened
+    - trade_closed
+    - stop_loss_hit
+    - take_profit_hit
+    - drawdown_warning
+    - system_error
+    - daily_summary
+
+# ─── Logging ───
+logging:
+  level: INFO  # Options: DEBUG, INFO, WARNING, ERROR
+  trade_log: true
+  performance_log: true
+  error_log: true
+  log_retention_days: 30

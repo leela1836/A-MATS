@@ -1,0 +1,82 @@
+# A-MATS Risk Management Configuration
+# Defines risk parameters, position sizing, drawdown limits, and compliance rules
+
+# ─── Portfolio-Level Risk ───
+portfolio:
+  max_drawdown_percent: 15.0        # Maximum portfolio drawdown before halt
+  max_daily_loss_percent: 3.0       # Maximum daily loss before halt
+  max_position_concentration: 25.0  # Max % of portfolio in single position
+  max_sector_exposure: 40.0         # Max % of portfolio in single sector
+  max_leverage: 1.0                 # No leverage for MVP
+  min_cash_reserve_percent: 10.0    # Minimum cash to maintain
+  halt_on_drawdown: true
+  halt_duration_minutes: 60
+  cooldown_after_halt_minutes: 120
+
+# ─── Position Sizing ───
+position_sizing:
+  method: kelly_criterion  # Options: fixed, kelly_criterion, percent_risk, volatility_adjusted
+  default_size_percent: 2.0
+  max_size_percent: 10.0
+  min_size_percent: 0.5
+  kelly_fraction: 0.25     # Fraction of Kelly to use (conservative)
+  scaling:
+    enabled: true
+    confidence_threshold: 0.7
+    max_scale_multiplier: 2.0
+
+# ─── Stop Loss & Take Profit ───
+stop_loss:
+  enabled: true
+  default_type: trailing  # Options: fixed, trailing, volatility
+  default_atr_multiplier: 2.0
+  fixed_percent: 5.0
+  trailing_activation_percent: 3.0
+  trailing_distance_percent: 2.0
+  breakeven_after_percent: 2.0  # Move SL to breakeven after this gain
+
+take_profit:
+  enabled: true
+  default_type: fixed  # Options: fixed, trailing, target_ratio
+  fixed_percent: 15.0
+  risk_reward_ratio: 3.0
+  partial_exit:
+    enabled: true
+    levels:
+      - at_percent: 5.0
+        sell_fraction: 0.25
+      - at_percent: 10.0
+        sell_fraction: 0.25
+      - at_percent: 15.0
+        sell_fraction: 0.50
+
+# ─── Risk Per Trade ───
+per_trade:
+  max_risk_percent: 1.0       # Max % of portfolio risked per trade
+  max_position_hold_days: 30
+  min_confidence_score: 0.4
+  max_correlation: 0.7        # Max correlation between concurrent positions
+  max_concurrent_trades: 5
+
+# ─── Volatility Controls ───
+volatility:
+  max_daily_volatility_percent: 5.0
+  vix_threshold: 30           # Reduce size when VIX above this
+  vix_reduction_factor: 0.5   # Reduce position size by this factor
+  gap_risk:
+    enabled: true
+    max_gap_percent: 3.0
+    reduce_size_before_earnings: true
+    earnings_reduction_factor: 0.5
+
+# ─── Compliance ───
+compliance:
+  restricted_symbols: []
+  max_trades_per_day: 20
+  min_trade_interval_minutes: 1
+  pattern_day_trader_rule:
+    enabled: true
+    max_day_trades_per_5days: 3
+  reporting:
+    enabled: true
+    report_frequency: daily  # Options: realtime, daily, weekly

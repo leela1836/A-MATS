@@ -1,0 +1,148 @@
+# A-MATS Agent Configuration
+# Defines agent behavior, LLM settings, prompt versions, and execution parameters
+
+# ─── LLM Configuration ───
+llm:
+  provider: openai  # Options: openai, azure_openai, anthropic
+  model: gpt-4o
+  temperature: 0.2
+  max_tokens: 4096
+  timeout_seconds: 60
+  max_retries: 3
+  retry_delay_seconds: 2.0
+
+  # Azure OpenAI (if provider = azure_openai)
+  azure:
+    endpoint_env: AZURE_OPENAI_ENDPOINT
+    deployment_name: gpt-4o
+    api_version: "2024-02-15-preview"
+
+  # Rate limiting for LLM calls
+  rate_limit:
+    requests_per_minute: 500
+    tokens_per_minute: 100000
+    max_concurrent: 5
+
+# ─── Supervisor Agent ───
+supervisor:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.1
+  max_iterations: 10
+  timeout_seconds: 120
+  prompt_version: v1
+  orchestration_mode: sequential  # Options: sequential, parallel, hybrid
+  parallel_agent_limit: 3
+
+# ─── Market Agent ───
+market_agent:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.1
+  prompt_version: v1
+  data_refresh_interval_seconds: 300
+  max_symbols_per_analysis: 5
+  indicators_enabled: true
+  pattern_recognition_enabled: true
+
+# ─── News Agent ───
+news_agent:
+  enabled: true
+  model: gpt-4o-mini
+  temperature: 0.1
+  prompt_version: v1
+  sources:
+    - finviz
+    - seeking_alpha
+    - reuters
+  max_articles_per_symbol: 10
+  sentiment_analysis_enabled: true
+  lookback_hours: 24
+
+# ─── Knowledge Agent ───
+knowledge_agent:
+  enabled: true
+  model: gpt-4o-mini
+  temperature: 0.3
+  prompt_version: v1
+  max_results: 5
+  similarity_threshold: 0.75
+  sources:
+    - books
+    - historical_trades
+    - reflections
+
+# ─── Memory Agent ───
+memory_agent:
+  enabled: true
+  model: gpt-4o-mini
+  temperature: 0.2
+  prompt_version: v1
+  short_term_ttl_minutes: 60
+  long_term_consolidation_interval_hours: 24
+  max_short_term_items: 100
+
+# ─── Reasoning Engine ───
+reasoning_engine:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.2
+  prompt_version: v1
+  reasoning_depth: detailed  # Options: quick, balanced, detailed
+  chain_of_thought: true
+  max_alternatives: 3
+
+# ─── Evaluation Engine ───
+evaluation_engine:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.1
+  prompt_version: v1
+  scoring_method: weighted  # Options: simple, weighted, ensemble
+  min_pass_score: 0.6
+  dimensions:
+    - risk_reward
+    - technical_alignment
+    - fundamental_alignment
+    - news_sentiment
+    - market_condition
+
+# ─── Risk Engine ───
+risk_engine:
+  enabled: true
+  model: gpt-4o-mini
+  temperature: 0.1
+  prompt_version: v1
+  risk_assessment_depth: standard  # Options: quick, standard, thorough
+  override_capability: true  # Can override agent decisions on risk grounds
+
+# ─── Decision Engine ───
+decision_engine:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.1
+  prompt_version: v1
+  min_approval_threshold: 0.7
+  requires_unanimous: false
+  decision_logging: true
+
+# ─── Reflection Engine ───
+reflection_engine:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.3
+  prompt_version: v1
+  reflection_frequency: per_trade  # Options: per_trade, daily, weekly
+  max_lessons_per_reflection: 5
+  store_in_vector_db: true
+
+# ─── Learning Engine ───
+learning_engine:
+  enabled: true
+  model: gpt-4o
+  temperature: 0.3
+  prompt_version: v1
+  consolidation_interval_hours: 24
+  pattern_detection_enabled: true
+  strategy_adaptation_enabled: true
+  max_stored_patterns: 100
