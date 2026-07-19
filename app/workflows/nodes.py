@@ -20,88 +20,133 @@ from app.models.state import (
 )
 
 
-# A tiny fixed price book (INR) so the skeleton runs without any data feed.
-# NSE symbols; approximate levels, replaced by the live collector later.
-_FIXTURE_PRICES: dict[str, float] = {
-    "RELIANCE.NS": 1400.0,
-    "TCS.NS": 3200.0,
-    "HDFCBANK.NS": 1700.0,
-    "INFY.NS": 1500.0,
-    "^NSEI": 24800.0,  # Nifty 50
-    "__BADFEED__": float("nan"),  # used by tests to trip the evaluation gate
-}
-
-
 def market_node(state: AgentState) -> dict:
+    """Fetch live NSE data and derive a technical read.
+
+    On a data failure we return a non-finite price so the evaluation gate
+    halts the cycle rather than trading on a bad feed.
+    """
+    from app.collectors.market_collector import MarketDataError, get_market_provider
+
     symbol = state["symbols"][0]
-    price = _FIXTURE_PRICES.get(symbol, 100.0)
-    analysis = MarketAnalysis(
-        symbol=symbol,
-        last_price=price,
-        trend="up",
-        signal=Direction.LONG,
-        confidence=0.72,
-        indicators={"rsi": 58.0, "ema_20": price * 0.98},
-    )
-    return {"market_analysis": analysis}
+    try:
+        analysis = get_market_provider().get_analysis(symbol)
+        return {"market_analysis": analysis}
+    except MarketDataError as exc:
+        bad = MarketAnalysis(
+            symbol=symbol,
+            last_price=float("nan"),
+            trend="unknown",
+            signal=Direction.HOLD,
+            confidence=0.0,
+            indicators={},
+        )
+        return {
+            "market_analysis": bad,
+            "warnings": [f"market data error: {exc}"],
+        }
 
 
 def reasoning_node(state: AgentState) -> dict:
+    """Turn the technical read into a thesis with entry/stop/target levels.
+
+    Uses ATR for stop distance when available (2:1 reward:risk), falling back
+    to fixed percentages. HOLD keeps flat levels (no trade proposed).
+    """
     ma = state["market_analysis"]
     entry = ma.last_price
+    atr = ma.indicators.get("atr_14", 0.0) if ma.indicators else 0.0
+
+    if ma.signal == Direction.HOLD or not _finite(entry):
+        stop, take = entry, entry
+    else:
+        # Stop 1.5*ATR away; target 3*ATR (2:1). Fall back to % if ATR missing.
+        stop_dist = 1.5 * atr if atr > 0 else entry * 0.03
+        take_dist = 3.0 * atr if atr > 0 else entry * 0.06
+        if ma.signal == Direction.LONG:
+            stop, take = entry - stop_dist, entry + take_dist
+        else:  # SHORT
+            stop, take = entry + stop_dist, entry - take_dist
+
     reasoned = ReasonedAnalysis(
         symbol=ma.symbol,
-        thesis=f"{ma.symbol} trend is {ma.trend}; momentum supports a {ma.signal.value} bias.",
+        thesis=(
+            f"{ma.symbol}: trend {ma.trend}, RSI "
+            f"{ma.indicators.get('rsi_14', float('nan')):.1f} → "
+            f"{ma.signal.value} bias."
+            if ma.indicators
+            else f"{ma.symbol}: {ma.signal.value} bias."
+        ),
         direction=ma.signal,
         confidence=ma.confidence,
         entry_price=entry,
-        stop_loss=entry * 0.97,
-        take_profit=entry * 1.09,
+        stop_loss=round(stop, 2) if _finite(stop) else stop,
+        take_profit=round(take, 2) if _finite(take) else take,
     )
     return {"reasoned_analysis": reasoned}
 
 
 def evaluation_node(state: AgentState) -> dict:
-    """Analytical gate: veto illogical or malformed proposals BEFORE risk sizing."""
+    """Analytical gate: veto malformed proposals BEFORE risk sizing.
+
+    Three outcomes:
+      - non-finite feed        -> HALT (bad data, never trade on it)
+      - HOLD signal (finite)   -> pass through as a legitimate no-trade
+      - LONG/SHORT proposal    -> score ordering + R:R, pass/halt on threshold
+    """
     r = state["reasoned_analysis"]
     agent_cfg = get_config("agent")["evaluation_engine"]
     min_pass = float(agent_cfg.get("min_pass_score", 0.6))
 
-    checks: dict[str, float] = {}
-
-    # Sanity: prices must be finite and ordered for the stated direction.
     prices_finite = all(
         _finite(v) for v in (r.entry_price, r.stop_loss, r.take_profit)
     )
-    checks["prices_valid"] = 1.0 if prices_finite else 0.0
 
-    if prices_finite and r.direction == Direction.LONG:
+    # Bad feed: halt hard.
+    if not prices_finite:
+        scores = EvaluationScores(
+            passed=False, overall_score=0.0,
+            dimensions={"prices_valid": 0.0},
+            reason="non-finite prices (bad feed)",
+        )
+        return {
+            "evaluation_scores": scores,
+            "halted": True,
+            "halt_reason": f"evaluation rejected: {scores.reason}",
+        }
+
+    # Legitimate no-trade: pass through, no order will be placed downstream.
+    if r.direction == Direction.HOLD:
+        return {"evaluation_scores": EvaluationScores(
+            passed=True, overall_score=1.0,
+            dimensions={"prices_valid": 1.0, "no_trade": 1.0},
+            reason="no trade (hold signal)",
+        )}
+
+    # Tradeable proposal: score ordering, confidence, and risk/reward.
+    if r.direction == Direction.LONG:
         ordered = r.stop_loss < r.entry_price < r.take_profit
-    elif prices_finite and r.direction == Direction.SHORT:
+    else:  # SHORT
         ordered = r.take_profit < r.entry_price < r.stop_loss
-    else:
-        ordered = False
-    checks["levels_ordered"] = 1.0 if ordered else 0.0
-    checks["confidence"] = r.confidence
 
-    # Risk/reward must clear 1.0 to be worth taking.
-    if prices_finite and ordered:
-        reward = abs(r.take_profit - r.entry_price)
-        risk = abs(r.entry_price - r.stop_loss)
-        rr = reward / risk if risk else 0.0
-    else:
-        rr = 0.0
-    checks["risk_reward"] = min(rr / 3.0, 1.0)  # normalize against a 3:1 target
+    reward = abs(r.take_profit - r.entry_price)
+    risk = abs(r.entry_price - r.stop_loss)
+    rr = reward / risk if risk else 0.0
 
-    hard_fail = not (prices_finite and ordered)
-    overall = 0.0 if hard_fail else sum(checks.values()) / len(checks)
-    passed = (not hard_fail) and overall >= min_pass
+    checks = {
+        "prices_valid": 1.0,
+        "levels_ordered": 1.0 if ordered else 0.0,
+        "confidence": r.confidence,
+        "risk_reward": min(rr / 3.0, 1.0),  # normalize against a 3:1 target
+    }
+    overall = 0.0 if not ordered else sum(checks.values()) / len(checks)
+    passed = ordered and overall >= min_pass
 
     scores = EvaluationScores(
         passed=passed,
         overall_score=round(overall, 4),
         dimensions=checks,
-        reason="ok" if passed else "failed sanity/scoring checks",
+        reason="ok" if passed else "failed ordering/scoring checks",
     )
     update: dict = {"evaluation_scores": scores}
     if not passed:
@@ -116,6 +161,14 @@ def risk_node(state: AgentState) -> dict:
     sizing = risk_cfg["position_sizing"]
 
     r = state["reasoned_analysis"]
+
+    # HOLD is a no-position, not a risk rejection: pass through with zero size.
+    if r.direction == Direction.HOLD:
+        return {"risk_assessment": RiskAssessment(
+            approved=True, position_size_percent=0.0,
+            risk_per_trade_percent=0.0, reason="no position (hold)",
+        )}
+
     size = float(sizing.get("default_size_percent", 2.0))
     max_size = float(sizing.get("max_size_percent", 10.0))
     size = min(size * (1.0 + r.confidence), max_size)

@@ -49,6 +49,16 @@ def test_evaluation_levels_ordered_for_long():
     assert r["stop_loss"] < r["entry_price"] < r["take_profit"]
 
 
+def test_hold_signal_places_no_order():
+    """A sideways/HOLD read passes evaluation but places no paper order."""
+    result = run_cycle("SIDEWAYS.NS")
+    assert result["halted"] is False
+    assert result["evaluation_scores"]["passed"] is True
+    assert result["decision"]["action"] == Direction.HOLD.value
+    assert result["execution_result"]["filled"] is False
+    assert result["portfolio"]["open_positions"] == []
+
+
 def test_health_endpoint():
     resp = client.get("/health")
     assert resp.status_code == 200

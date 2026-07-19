@@ -175,6 +175,9 @@ export function Dashboard() {
                   <Field label="trend" value={r.market_analysis.trend} />
                   <Field label="signal" value={r.market_analysis.signal} />
                   <Field label="confidence" value={fmt(r.market_analysis.confidence)} />
+                  {Object.entries(r.market_analysis.indicators).map(([k, v]) => (
+                    <Field key={k} label={k} value={v === null ? "—" : fmt(v)} />
+                  ))}
                 </>
               )}
             </StageCard>
