@@ -14,7 +14,20 @@ def run_cycle(symbol: str, run_id: str = "run") -> dict:
 
     with timed() as t:
         final: AgentState = GRAPH.invoke(state)
-    trace.record(NodeTrace(node="graph", duration_ms=t.ms, note="full cycle"))
+
+    # Per-node LLM accounting recorded by the agents into state["metrics"].
+    for node, m in (final.get("metrics") or {}).items():
+        trace.record(NodeTrace(
+            node=node,
+            duration_ms=float(m.get("duration_ms", 0.0)),
+            prompt_tokens=int(m.get("prompt_tokens", 0)),
+            completion_tokens=int(m.get("completion_tokens", 0)),
+            cost_usd=float(m.get("cost_usd", 0.0)),
+            note=f"{m.get('source', '?')}"
+                 + (f" · {m['model']}" if m.get("model") else "")
+                 + (f" · {m['reason']}" if m.get("reason") else ""),
+        ))
+    trace.wall_ms = t.ms
 
     # Mark the portfolio to the price this cycle saw so equity reflects the run.
     ma = final.get("market_analysis")

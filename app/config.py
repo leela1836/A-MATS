@@ -1,4 +1,8 @@
-"""Loads and caches the YAML config files under configs/."""
+"""Loads and caches the YAML config files under configs/.
+
+Also loads secrets from the gitignored .env at import time so every module
+sees API keys via os.getenv without needing to know where they came from.
+"""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -7,7 +11,15 @@ from typing import Any
 
 import yaml
 
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "configs"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_DIR = PROJECT_ROOT / "configs"
+
+try:  # optional dependency; absence just means no .env loading
+    from dotenv import load_dotenv
+
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:  # pragma: no cover
+    pass
 
 _CONFIG_FILES = {
     "agent": "agent.yaml",

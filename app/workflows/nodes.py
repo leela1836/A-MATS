@@ -14,10 +14,10 @@ from app.models.state import (
     EvaluationScores,
     ExecutionResult,
     MarketAnalysis,
-    ReasonedAnalysis,
     RiskAssessment,
     TradingDecision,
 )
+from app.observability.trace import timed
 
 
 def market_node(state: AgentState) -> dict:
@@ -48,42 +48,16 @@ def market_node(state: AgentState) -> dict:
 
 
 def reasoning_node(state: AgentState) -> dict:
-    """Turn the technical read into a thesis with entry/stop/target levels.
+    """Delegate to the Reasoning Engine (LLM, with deterministic fallback)."""
+    from app.agents.reasoning import reason
 
-    Uses ATR for stop distance when available (2:1 reward:risk), falling back
-    to fixed percentages. HOLD keeps flat levels (no trade proposed).
-    """
     ma = state["market_analysis"]
-    entry = ma.last_price
-    atr = ma.indicators.get("atr_14", 0.0) if ma.indicators else 0.0
+    with timed() as t:
+        reasoned, usage = reason(ma)
 
-    if ma.signal == Direction.HOLD or not _finite(entry):
-        stop, take = entry, entry
-    else:
-        # Stop 1.5*ATR away; target 3*ATR (2:1). Fall back to % if ATR missing.
-        stop_dist = 1.5 * atr if atr > 0 else entry * 0.03
-        take_dist = 3.0 * atr if atr > 0 else entry * 0.06
-        if ma.signal == Direction.LONG:
-            stop, take = entry - stop_dist, entry + take_dist
-        else:  # SHORT
-            stop, take = entry + stop_dist, entry - take_dist
-
-    reasoned = ReasonedAnalysis(
-        symbol=ma.symbol,
-        thesis=(
-            f"{ma.symbol}: trend {ma.trend}, RSI "
-            f"{ma.indicators.get('rsi_14', float('nan')):.1f} → "
-            f"{ma.signal.value} bias."
-            if ma.indicators
-            else f"{ma.symbol}: {ma.signal.value} bias."
-        ),
-        direction=ma.signal,
-        confidence=ma.confidence,
-        entry_price=entry,
-        stop_loss=round(stop, 2) if _finite(stop) else stop,
-        take_profit=round(take, 2) if _finite(take) else take,
-    )
-    return {"reasoned_analysis": reasoned}
+    metrics = dict(state.get("metrics") or {})
+    metrics["reasoning"] = {**usage, "duration_ms": round(t.ms, 2)}
+    return {"reasoned_analysis": reasoned, "metrics": metrics}
 
 
 def evaluation_node(state: AgentState) -> dict:

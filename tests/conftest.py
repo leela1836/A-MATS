@@ -48,3 +48,12 @@ class FakeMarketProvider:
 @pytest.fixture(autouse=True)
 def fake_market(monkeypatch):
     monkeypatch.setattr(market_collector, "_provider", FakeMarketProvider())
+
+
+@pytest.fixture(autouse=True)
+def no_llm(monkeypatch):
+    """Force the deterministic fallback so tests never spend tokens.
+
+    Opt back in per-test with `monkeypatch.setenv("OPENAI_API_KEY", ...)`.
+    """
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)

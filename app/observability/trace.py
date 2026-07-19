@@ -24,13 +24,16 @@ class NodeTrace:
 class RunTrace:
     run_id: str
     nodes: list[NodeTrace] = field(default_factory=list)
+    wall_ms: float = 0.0  # end-to-end cycle time, set by the runner
 
     def record(self, trace: NodeTrace) -> None:
         self.nodes.append(trace)
 
     @property
     def total_ms(self) -> float:
-        return sum(n.duration_ms for n in self.nodes)
+        # Node durations are nested inside the cycle, so summing them would
+        # double-count. Prefer the measured wall time when available.
+        return self.wall_ms or sum(n.duration_ms for n in self.nodes)
 
     @property
     def total_tokens(self) -> int:
