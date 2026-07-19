@@ -69,14 +69,16 @@ volatility:
     reduce_size_before_earnings: true
     earnings_reduction_factor: 0.5
 
-# ─── Compliance ───
+# ─── Compliance (SEBI / NSE) ───
 compliance:
-  restricted_symbols: []
+  restricted_symbols: []       # e.g. F&O ban-list symbols, ASM/GSM stocks
   max_trades_per_day: 20
   min_trade_interval_minutes: 1
-  pattern_day_trader_rule:
-    enabled: true
-    max_day_trades_per_5days: 3
+  # India has NO US-style Pattern-Day-Trader rule. Relevant constraints instead:
+  settlement_cycle: T+1        # NSE equity settlement (T+1 since 2023)
+  intraday_leverage_max: 5.0   # Broker MIS/intraday margin ceiling (varies by broker)
+  avoid_asm_gsm_stocks: true   # Skip Additional/Graded Surveillance Measure names
+  respect_circuit_limits: true # Do not chase price/circuit-band breaches
   reporting:
     enabled: true
     report_frequency: daily  # Options: realtime, daily, weekly

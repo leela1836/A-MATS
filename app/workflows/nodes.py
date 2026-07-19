@@ -20,12 +20,14 @@ from app.models.state import (
 )
 
 
-# A tiny fixed price book so the skeleton runs without any data feed.
+# A tiny fixed price book (INR) so the skeleton runs without any data feed.
+# NSE symbols; approximate levels, replaced by the live collector later.
 _FIXTURE_PRICES: dict[str, float] = {
-    "AAPL": 190.0,
-    "MSFT": 420.0,
-    "SPY": 540.0,
-    "NVDA": 120.0,
+    "RELIANCE.NS": 1400.0,
+    "TCS.NS": 3200.0,
+    "HDFCBANK.NS": 1700.0,
+    "INFY.NS": 1500.0,
+    "^NSEI": 24800.0,  # Nifty 50
     "__BADFEED__": float("nan"),  # used by tests to trip the evaluation gate
 }
 

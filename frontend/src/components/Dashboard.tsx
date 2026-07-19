@@ -14,7 +14,7 @@ function fmt(n: number | null | undefined, digits = 2): string {
 }
 
 export function Dashboard() {
-  const [symbol, setSymbol] = useState("AAPL");
+  const [symbol, setSymbol] = useState("RELIANCE.NS");
   const [result, setResult] = useState<RunResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +96,7 @@ export function Dashboard() {
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && run()}
-          placeholder="Symbol (e.g. AAPL)"
+          placeholder="Symbol (e.g. RELIANCE.NS)"
           className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm font-mono outline-none focus:border-accent"
         />
         <button

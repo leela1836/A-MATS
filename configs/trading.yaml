@@ -2,28 +2,30 @@
 # Defines trading modes, execution parameters, and strategy settings
 
 # ─── Trading Mode ───
+# Currency: INR. Balances and slippage are in rupees.
 mode:
   current: simulation  # Options: simulation, paper, live
+  currency: INR
   simulation:
-    initial_balance: 100000.0
-    slippage_model: fixed  # Options: fixed, percentage, market_impact
-    fixed_slippage: 0.01   # $0.01 per share
-    percentage_slippage: 0.001  # 0.1%
-    commission_per_trade: 0.0
-    fill_rate: 0.95        # 95% of orders fill
+    initial_balance: 1000000.0   # ₹10,00,000
+    slippage_model: percentage   # Options: fixed, percentage, market_impact
+    fixed_slippage: 0.05         # ₹0.05 per share
+    percentage_slippage: 0.0005  # 0.05% (tight for liquid NSE large-caps)
+    commission_per_trade: 20.0   # ~₹20 flat brokerage (Zerodha intraday cap)
+    fill_rate: 0.95              # 95% of orders fill
     latency_ms: 50
   paper:
-    initial_balance: 100000.0
-    broker: alpaca  # Options: alpaca, tradier
+    initial_balance: 1000000.0
+    broker: zerodha  # Options: zerodha, upstox, angel_one
     api_key_env: PAPER_API_KEY
     api_secret_env: PAPER_API_SECRET
-    base_url: https://paper-api.alpaca.markets
+    base_url: https://api.kite.trade
   live:
     enabled: false
-    broker: alpaca
+    broker: zerodha
     api_key_env: LIVE_API_KEY
     api_secret_env: LIVE_API_SECRET
-    base_url: https://api.alpaca.markets
+    base_url: https://api.kite.trade
     require_confirmation: true
 
 # ─── Execution ───
@@ -92,17 +94,27 @@ scheduling:
   market_open_analysis: true
   market_close_analysis: true
   weekend_trading: false
+  # NSE trading holidays (equity segment). Verify annually against the official
+  # NSE calendar; prefer fetching live via nsepython when available.
   holidays:
-    - New_Years_Day
-    - Martin_Luther_King_Day
-    - Presidents_Day
+    - Republic_Day          # 26 Jan
+    - Maha_Shivaratri
+    - Holi
+    - Id_ul_Fitr
+    - Ram_Navami
+    - Mahavir_Jayanti
     - Good_Friday
-    - Memorial_Day
-    - Juneteenth
-    - Independence_Day
-    - Labor_Day
-    - Thanksgiving
-    - Christmas
+    - Dr_Ambedkar_Jayanti   # 14 Apr
+    - Maharashtra_Day       # 01 May
+    - Bakri_Id
+    - Independence_Day      # 15 Aug
+    - Ganesh_Chaturthi
+    - Mahatma_Gandhi_Jayanti  # 02 Oct
+    - Dussehra
+    - Diwali_Laxmi_Pujan    # Muhurat trading (special session)
+    - Diwali_Balipratipada
+    - Guru_Nanak_Jayanti
+    - Christmas             # 25 Dec
 
 # ─── Notifications ───
 notifications:

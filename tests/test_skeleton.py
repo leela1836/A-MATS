@@ -14,7 +14,7 @@ client = TestClient(app)
 
 
 def test_happy_path_reaches_execution():
-    result = run_cycle("AAPL")
+    result = run_cycle("RELIANCE.NS")
     assert result["halted"] is False
     assert result["decision"] is not None
     assert result["execution_result"]["filled"] is True
@@ -40,7 +40,7 @@ def test_evaluation_gate_halts_bad_feed():
 
 
 def test_evaluation_levels_ordered_for_long():
-    result = run_cycle("MSFT")
+    result = run_cycle("TCS.NS")
     r = result["reasoned_analysis"]
     assert r["direction"] == Direction.LONG.value
     assert r["stop_loss"] < r["entry_price"] < r["take_profit"]
@@ -53,10 +53,10 @@ def test_health_endpoint():
 
 
 def test_run_endpoint_end_to_end():
-    resp = client.post("/run/AAPL")
+    resp = client.post("/run/RELIANCE.NS")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["symbol"] == "AAPL"
+    assert body["symbol"] == "RELIANCE.NS"
     assert body["execution_result"]["filled"] is True
     assert body["trace"]["total_ms"] >= 0
 
