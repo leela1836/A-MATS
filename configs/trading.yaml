@@ -7,7 +7,7 @@ mode:
   current: paper  # Options: simulation, paper, live
   currency: INR
   simulation:
-    initial_balance: 1000000.0   # ₹10,00,000
+    initial_balance: 100000.0   # ₹10,00,000
     slippage_model: percentage   # Options: fixed, percentage, market_impact
     fixed_slippage: 0.05         # ₹0.05 per share
     percentage_slippage: 0.0005  # 0.05% (tight for liquid NSE large-caps)
@@ -19,7 +19,7 @@ mode:
     # rendered by our own web app. No external broker is contacted. The broker
     # field below only matters if live execution is later routed to a real
     # broker; paper stays fully in-app.
-    initial_balance: 1000000.0
+    initial_balance: 100000.0
     in_app: true
     broker: groww  # Options: groww, upstox, angel_one
     commission_per_trade: 20.0   # ~₹20 flat brokerage per order

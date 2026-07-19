@@ -16,9 +16,14 @@ portfolio:
 # ─── Position Sizing ───
 position_sizing:
   method: kelly_criterion  # Options: fixed, kelly_criterion, percent_risk, volatility_adjusted
-  default_size_percent: 2.0
-  max_size_percent: 10.0
-  min_size_percent: 0.5
+  # Sized for a ~Rs 1,00,000 account. At the old 2% (Rs 2,000/trade) any share
+  # priced above Rs 2,000 — TCS, L&T, index units — rounded down to ZERO and
+  # was silently untradeable. 10% (Rs 10,000) keeps the whole NSE large-cap
+  # universe reachable. The trade-off is concentration: fewer, larger
+  # positions, still inside portfolio.max_position_concentration (25%).
+  default_size_percent: 10.0
+  max_size_percent: 20.0
+  min_size_percent: 2.0
   kelly_fraction: 0.25     # Fraction of Kelly to use (conservative)
   scaling:
     enabled: true

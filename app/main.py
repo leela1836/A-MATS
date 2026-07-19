@@ -47,6 +47,29 @@ def run(symbol: str) -> dict:
     return run_cycle(symbol.upper(), run_id=f"api-{symbol.lower()}")
 
 
+@app.post("/backtest/{symbol}")
+def backtest(symbol: str, period: str = "2y", include_trades: bool = True) -> dict:
+    """Replay the deterministic technical strategy over history.
+
+    Note this validates the SIGNAL, not the LLM reasoning layer (see
+    app/backtester/engine.py) and makes no LLM calls, so it costs no quota.
+    """
+    from app.backtester.analytics import analyse
+    from app.backtester.engine import run_backtest
+
+    try:
+        result = run_backtest(symbol.upper(), period=period)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"backtest failed: {exc}")
+
+    payload = {"metrics": analyse(result), "equity_curve": result.equity_curve}
+    if include_trades:
+        payload["trades"] = [t.__dict__ for t in result.trades]
+    return payload
+
+
 @app.get("/portfolio")
 def portfolio() -> dict:
     """Current virtual paper portfolio (cash, positions, P&L)."""

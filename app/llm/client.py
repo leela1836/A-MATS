@@ -75,10 +75,30 @@ def provider_name() -> str:
     return str(get_config("agent").get("llm", {}).get("provider", "google")).lower()
 
 
+# Providers that speak the OpenAI wire format. NVIDIA NIM and other hosted
+# gateways only differ by base_url + key env, so they reuse the OpenAI path.
+_OPENAI_COMPATIBLE: dict[str, tuple[str, Optional[str]]] = {
+    # provider: (key env var, base_url or None for OpenAI's own default)
+    "openai": ("OPENAI_API_KEY", None),
+    "nvidia": ("NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1"),
+}
+
+
 def api_key(provider: Optional[str] = None) -> Optional[str]:
     provider = provider or provider_name()
-    env = "GOOGLE_API_KEY" if provider == "google" else "OPENAI_API_KEY"
+    if provider == "google":
+        env = "GOOGLE_API_KEY"
+    else:
+        env = _OPENAI_COMPATIBLE.get(provider, ("OPENAI_API_KEY", None))[0]
     return os.getenv(env, "").strip() or None
+
+
+def _base_url(provider: str) -> Optional[str]:
+    """Explicit config wins, else the provider's known gateway."""
+    configured = get_config("agent").get("llm", {}).get("base_url")
+    if configured:
+        return str(configured)
+    return _OPENAI_COMPATIBLE.get(provider, (None, None))[1]
 
 
 def is_available(provider: Optional[str] = None) -> bool:
@@ -120,7 +140,8 @@ def complete_json(
                     )
                 else:
                     raw, pt, ct = _openai_call(
-                        key, candidate, system_prompt, payload_text, temperature, timeout
+                        key, candidate, system_prompt, payload_text, temperature,
+                        timeout, base_url=_base_url(provider),
                     )
                 data = json.loads(raw)
                 if not isinstance(data, dict):
@@ -212,14 +233,15 @@ def _gemini_call(
 
 def _openai_call(
     key: str, model: str, system_prompt: str, user_text: str,
-    temperature: float, timeout: float,
+    temperature: float, timeout: float, base_url: Optional[str] = None,
 ) -> tuple[str, int, int]:
+    """OpenAI-compatible chat completion (OpenAI, NVIDIA NIM, ...)."""
     try:
         from openai import OpenAI
     except ImportError as exc:  # pragma: no cover
         raise LLMUnavailable("openai package not installed") from exc
 
-    client = OpenAI(api_key=key, timeout=timeout)
+    client = OpenAI(api_key=key, timeout=timeout, base_url=base_url)
     resp = client.chat.completions.create(
         model=model,
         temperature=temperature,

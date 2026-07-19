@@ -97,6 +97,19 @@ def classify(ind: dict[str, float]) -> tuple[str, Direction, float]:
 
 # ── provider ──
 
+def fetch_history(symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
+    """Raw OHLCV history. Shared by the live provider and the backtester."""
+    import yfinance as yf
+
+    try:
+        df = yf.Ticker(symbol).history(period=period, interval=interval)
+    except Exception as exc:
+        raise MarketDataError(f"fetch failed for {symbol}: {exc}") from exc
+    if df is None or df.empty:
+        raise MarketDataError(f"no data for {symbol}")
+    return df
+
+
 class YFinanceProvider:
     """Fetches and caches MarketAnalysis for a symbol."""
 

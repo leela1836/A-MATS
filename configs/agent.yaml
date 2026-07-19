@@ -3,7 +3,11 @@
 
 # ─── LLM Configuration ───
 llm:
-  provider: google  # Options: google, openai
+  provider: google  # Options: google, openai, nvidia
+  # nvidia = NVIDIA NIM (OpenAI-compatible; reads NVIDIA_API_KEY, routes to
+  # https://integrate.api.nvidia.com/v1). Set `base_url` below to override any
+  # provider's endpoint.
+  # base_url:
   # Google reads GOOGLE_API_KEY; OpenAI reads OPENAI_API_KEY (both from .env).
   # Free-tier AI Studio keys are capped at ~20 requests/DAY *per model*, so
   # the chain below matters: when the primary is exhausted (HTTP 429) the

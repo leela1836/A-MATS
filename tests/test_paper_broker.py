@@ -56,9 +56,17 @@ def test_average_price_on_scale_in(broker):
 
 
 def test_size_to_qty_uses_equity(broker):
-    # 2% of ~1,000,000 equity at price 1000 => ~20 shares.
-    qty = broker.size_to_qty(2.0, 1000.0, {})
-    assert qty == 20
+    """qty = size% of current equity / price, floored to whole shares."""
+    equity = broker.equity({})
+    qty = broker.size_to_qty(10.0, 1000.0, {})
+    assert qty == int((equity * 0.10) // 1000.0)
+
+
+def test_size_to_qty_zero_when_share_costs_more_than_budget(broker):
+    """Guards the Rs 1L failure mode: a share pricier than the per-trade
+    budget must report 0, not a fractional position."""
+    equity = broker.equity({})
+    assert broker.size_to_qty(1.0, equity * 2, {}) == 0
 
 
 def test_persistence_round_trip(tmp_path):
