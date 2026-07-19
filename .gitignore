@@ -26,6 +26,7 @@ data/raw/
 data/cache/
 data/portfolio.json
 data/*.json.tmp
+data/nse_cache/
 
 # Databases (local dev artifacts)
 *.db

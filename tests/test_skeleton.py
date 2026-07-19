@@ -49,6 +49,51 @@ def test_evaluation_levels_ordered_for_long():
     assert r["stop_loss"] < r["entry_price"] < r["take_profit"]
 
 
+def test_asm_surveillance_stock_is_rejected_before_sizing(monkeypatch):
+    """avoid_asm_gsm_stocks must actually block, not just sit in config."""
+    from app.collectors import nse_official
+
+    monkeypatch.setattr(nse_official, "fetch_asm_symbols",
+                        lambda refresh=False: {"RELIANCE"})
+    result = run_cycle("RELIANCE.NS")
+    assert result["halted"] is True
+    assert "surveillance" in result["halt_reason"]
+    assert result["risk_assessment"]["approved"] is False
+    assert result["decision"] is None
+    assert result["execution_result"] is None
+
+
+def test_explicit_restricted_symbol_is_rejected(monkeypatch):
+    from app.workflows import nodes
+
+    real = nodes.get_config
+
+    def cfg(name):
+        if name == "risk":
+            d = dict(real("risk"))
+            d["compliance"] = {**d.get("compliance", {}), "restricted_symbols": ["TCS"]}
+            return d
+        return real(name)
+
+    monkeypatch.setattr(nodes, "get_config", cfg)
+    result = run_cycle("TCS.NS")
+    assert result["halted"] is True
+    assert "restricted_symbols" in result["halt_reason"]
+
+
+def test_nse_unreachable_does_not_block_trading(monkeypatch):
+    """Fail open: a slow exchange API must not halt the whole system."""
+    from app.collectors import nse_official
+
+    def boom(refresh=False):
+        raise ConnectionError("nse down")
+
+    monkeypatch.setattr(nse_official, "fetch_asm_symbols", boom)
+    result = run_cycle("RELIANCE.NS")
+    assert result["halted"] is False
+    assert result["execution_result"]["filled"] is True
+
+
 def test_no_order_placed_when_market_is_closed(monkeypatch):
     """Outside the NSE session yfinance still returns the previous close, and
     nothing about it looks stale — so the guard must block the fill."""

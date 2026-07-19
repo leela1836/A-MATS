@@ -149,6 +149,19 @@ def risk_node(state: AgentState) -> dict:
     sizing = risk_cfg["position_sizing"]
 
     r = state["reasoned_analysis"]
+    compliance = risk_cfg.get("compliance", {})
+
+    # Compliance screen — refuse restricted names before sizing anything.
+    blocked, why = _restricted(r.symbol, compliance)
+    if blocked:
+        return {
+            "risk_assessment": RiskAssessment(
+                approved=False, position_size_percent=0.0,
+                risk_per_trade_percent=0.0, reason=why,
+            ),
+            "halted": True,
+            "halt_reason": f"risk rejected: {why}",
+        }
 
     # HOLD is a no-position, not a risk rejection: pass through with zero size.
     if r.direction == Direction.HOLD:
@@ -248,6 +261,35 @@ def execution_node(state: AgentState) -> dict:
         fill_price=trade.price, size_percent=d.size_percent, mode=mode,
         note=f"paper {side} {qty} @ {trade.price} (comm {trade.commission})",
     )}
+
+
+def _restricted(symbol: str, compliance: dict) -> tuple[bool, str]:
+    """Screen a symbol against the explicit blocklist and NSE surveillance.
+
+    `avoid_asm_gsm_stocks` and `restricted_symbols` were declared in
+    configs/risk.yaml long before anything read them. ASM names carry
+    punitive margins and erratic price behaviour, so this is a real guard,
+    not bookkeeping.
+    """
+    from app.collectors.nse_official import to_nse_symbol
+
+    plain = to_nse_symbol(symbol)
+
+    explicit = {str(s).upper().strip() for s in compliance.get("restricted_symbols", []) or []}
+    if plain in explicit or symbol.upper() in explicit:
+        return True, f"{plain} is in compliance.restricted_symbols"
+
+    if compliance.get("avoid_asm_gsm_stocks", False):
+        try:
+            from app.collectors.nse_official import fetch_asm_symbols
+
+            if plain in fetch_asm_symbols():
+                return True, f"{plain} is under NSE surveillance (ASM)"
+        except Exception:
+            # Unreachable NSE must not silently drop the screen — but it also
+            # must not block trading entirely. Fail open, and say so upstream.
+            return False, ""
+    return False, ""
 
 
 def _finite(x: float) -> bool:

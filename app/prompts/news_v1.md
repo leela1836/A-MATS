@@ -19,6 +19,10 @@ Produce a sentiment read for `symbol` between **-1.0 (clearly bearish)** and
 
 1. **Weight `direct` articles far above `market` ones.** Broad market mood is
    context, not a signal about this company.
+1b. **`source: nse_official` outranks everything.** Those are filings the
+   company made to the exchange itself — facts, not reporting. A single
+   official disclosure outweighs several media headlines saying the same
+   thing, and contradicts any media claim it conflicts with.
 2. **Recency matters.** A 2-hour-old headline outweighs a 40-hour-old one.
 3. **Headlines are not analysis.** Indian financial media publishes a large
    volume of speculative "expert view", "top picks", "stocks to buy" and

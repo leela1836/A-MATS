@@ -67,6 +67,24 @@ def fake_news(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_nse_network(request, monkeypatch):
+    """Stub every official-NSE fetch so the suite never hits nseindia.com."""
+    from app.collectors import nse_official
+
+    # test_nse_official exercises these functions directly (stubbing the
+    # transport instead), so blanket-replacing them there would test nothing.
+    if request.module.__name__.endswith("test_nse_official"):
+        return
+
+    monkeypatch.setattr(nse_official, "fetch_asm_symbols", lambda refresh=False: set())
+    monkeypatch.setattr(nse_official, "fetch_announcements", lambda refresh=False: [])
+    monkeypatch.setattr(
+        nse_official, "fetch_trading_holidays",
+        lambda segment="CM", refresh=False: {__import__("datetime").date(2026, 1, 26)},
+    )
+
+
+@pytest.fixture(autouse=True)
 def market_open(monkeypatch):
     """Pin the session to OPEN so pipeline tests don't depend on the clock.
 

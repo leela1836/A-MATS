@@ -134,6 +134,18 @@ def _fetch_feed(source: dict[str, Any], cfg: dict[str, Any]) -> list[Article]:
     return articles
 
 
+def _age_hours(published: str) -> Optional[float]:
+    """Parse NSE's '19-Jul-2026 21:54:15' stamp into an age in hours."""
+    from datetime import datetime
+
+    for fmt in ("%d-%b-%Y %H:%M:%S", "%d-%b-%Y %H:%M", "%d-%b-%Y"):
+        try:
+            return round((datetime.now() - datetime.strptime(published.strip(), fmt)).total_seconds() / 3600, 1)
+        except ValueError:
+            continue
+    return None
+
+
 def _clean(text: str) -> str:
     """Strip tags and decode the entities RSS descriptions are riddled with."""
     import html
@@ -200,6 +212,35 @@ class NewsProvider:
     def _ttl(self, cfg: dict[str, Any]) -> float:
         return float(cfg.get("fetch", {}).get("cache_ttl_seconds", 900))
 
+    def _official(self, symbol: str, bundle: NewsBundle) -> list[Article]:
+        """Exchange-filed disclosures for this symbol.
+
+        These outrank media entirely: they are the company's own filings,
+        tagged with an exact NSE symbol, so relevance needs no keyword
+        guessing and there is nothing speculative about them.
+        """
+        from app.collectors.nse_official import (
+            fetch_announcements,
+            to_nse_symbol,
+        )
+
+        plain = to_nse_symbol(symbol)
+        out: list[Article] = []
+        try:
+            for a in fetch_announcements():
+                if a.symbol != plain:
+                    continue
+                out.append(Article(
+                    title=a.title, url=a.url, source="nse_official",
+                    domain="www.nseindia.com", trust=1.0,
+                    published=a.published, summary=a.detail,
+                    age_hours=_age_hours(a.published), relevance="direct",
+                ))
+            bundle.sources_used.append("nse_official")
+        except Exception as exc:
+            bundle.errors.append(f"nse_official: {type(exc).__name__}: {str(exc)[:80]}")
+        return out
+
     def get_news(self, symbol: str) -> NewsBundle:
         cfg = get_config("news")
         bundle = NewsBundle(symbol=symbol)
@@ -224,7 +265,10 @@ class NewsProvider:
             pool.extend(articles)
             bundle.sources_used.append(name)
 
-        bundle.articles = filter_for_symbol(pool, symbol, cfg)
+        # Media articles get keyword-filtered; official filings are already
+        # symbol-exact, so they bypass the relevance guesswork and lead.
+        official = self._official(symbol, bundle)
+        bundle.articles = official + filter_for_symbol(pool, symbol, cfg)
         return bundle
 
 

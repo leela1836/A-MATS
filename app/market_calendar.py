@@ -54,7 +54,8 @@ def _parse(hhmm: str) -> time:
     return time(int(h), int(m))
 
 
-def holiday_dates() -> set[date]:
+def config_holiday_dates() -> set[date]:
+    """Manually curated dates from configs/trading.yaml."""
     raw = get_config("trading").get("scheduling", {}).get("holiday_dates", []) or []
     out: set[date] = set()
     for item in raw:
@@ -63,6 +64,26 @@ def holiday_dates() -> set[date]:
         except ValueError:
             continue  # malformed entries are ignored, not fatal
     return out
+
+
+def holiday_dates() -> set[date]:
+    """Official NSE calendar, unioned with the config list.
+
+    NSE is authoritative — it covers lunar festivals whose dates move yearly
+    and one-off closures (elections) that cannot be derived. The config list
+    is kept as a union rather than a fallback so a manually added date still
+    counts if NSE is unreachable or omits something.
+    """
+    dates = config_holiday_dates()
+    try:
+        from app.collectors.nse_official import fetch_trading_holidays
+
+        dates |= fetch_trading_holidays("CM")
+    except Exception:
+        # Never let a calendar lookup fail a trading cycle; the config list
+        # still applies, and weekends are handled independently.
+        pass
+    return dates
 
 
 def is_holiday(d: date) -> bool:
