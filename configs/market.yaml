@@ -114,6 +114,16 @@ indicators:
     enabled: true
     max_lookback: 100
 
+# ─── Signal thresholds ───
+signal:
+  # EMA20/EMA50 crossovers fire constantly in choppy markets; taking every
+  # one is what made the unfiltered strategy bleed. The regime filter only
+  # permits longs above the EMA200 and shorts below it.
+  regime_filter: true
+  min_trend_separation: 0.002  # |EMA20-EMA50|/EMA50 needed to call a trend
+  rsi_long_max: 68.0           # don't buy stretched momentum
+  rsi_short_min: 32.0          # don't short exhausted selling
+
 # ─── Market Hours (NSE/BSE, IST) ───
 market_hours:
   regular:

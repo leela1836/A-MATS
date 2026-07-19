@@ -56,35 +56,68 @@ def compute_indicators(df: pd.DataFrame) -> dict[str, float]:
     close = df["Close"]
     ema20 = _ema(close, 20)
     ema50 = _ema(close, 50)
+    ema200 = _ema(close, 200)
     rsi = _rsi(close, 14)
     atr = _atr(df, 14)
     return {
         "last_price": float(close.iloc[-1]),
         "ema_20": float(ema20.iloc[-1]),
         "ema_50": float(ema50.iloc[-1]),
+        "ema_200": float(ema200.iloc[-1]),
         "rsi_14": float(rsi.iloc[-1]),
         "atr_14": float(atr.iloc[-1]),
     }
 
 
-def classify(ind: dict[str, float]) -> tuple[str, Direction, float]:
-    """Derive (trend, signal, confidence) from indicator values."""
+def signal_params(overrides: Optional[dict] = None) -> dict:
+    """Signal thresholds from configs/market.yaml, overridable for A/B tests."""
+    cfg = dict(get_config("market").get("signal", {}) or {})
+    defaults = {
+        "regime_filter": True,
+        "min_trend_separation": 0.002,
+        "rsi_long_max": 68.0,
+        "rsi_short_min": 32.0,
+    }
+    merged = {**defaults, **cfg}
+    if overrides:
+        merged.update(overrides)
+    return merged
+
+
+def classify(
+    ind: dict[str, float], params: Optional[dict] = None
+) -> tuple[str, Direction, float]:
+    """Derive (trend, signal, confidence) from indicator values.
+
+    The regime filter is the important part: EMA20/EMA50 crossovers fire
+    constantly in choppy markets, and taking every one is what made the
+    unfiltered strategy bleed. Requiring price to agree with the long-term
+    EMA200 trend suppresses counter-trend entries.
+    """
+    p = signal_params(params)
     price, ema20, ema50, rsi = (
         ind["last_price"], ind["ema_20"], ind["ema_50"], ind["rsi_14"],
     )
+    ema200 = ind.get("ema_200", 0.0)
     sep = (ema20 - ema50) / ema50 if ema50 else 0.0
+    min_sep = float(p["min_trend_separation"])
 
-    if sep > 0.002 and price > ema20:
+    if sep > min_sep and price > ema20:
         trend = "up"
-    elif sep < -0.002 and price < ema20:
+    elif sep < -min_sep and price < ema20:
         trend = "down"
     else:
         trend = "sideways"
 
-    # Only trade with the trend and away from exhausted momentum.
-    if trend == "up" and rsi < 68:
+    # Long-term regime: only trade in the direction of the primary trend.
+    if p.get("regime_filter") and ema200 > 0:
+        regime_up, regime_down = price > ema200, price < ema200
+    else:
+        regime_up = regime_down = True
+
+    if trend == "up" and rsi < float(p["rsi_long_max"]) and regime_up:
         signal = Direction.LONG
-    elif trend == "down" and rsi > 32:
+    elif trend == "down" and rsi > float(p["rsi_short_min"]) and regime_down:
         signal = Direction.SHORT
     else:
         signal = Direction.HOLD

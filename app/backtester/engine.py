@@ -32,7 +32,10 @@ from app.collectors.market_collector import classify, compute_indicators, fetch_
 from app.config import get_config
 from app.models.state import Direction
 
-WARMUP_BARS = 60  # EMA50 + ATR14 need history before signals mean anything
+# EMA200 needs far more history than EMA50 before it means anything. Using a
+# 60-bar warmup with a 200-period EMA would evaluate the regime filter against
+# a barely-converged average and silently distort every comparison.
+WARMUP_BARS = 210
 
 
 @dataclass
@@ -81,8 +84,13 @@ def run_backtest(
     period: str = "2y",
     starting_equity: Optional[float] = None,
     df: Optional[pd.DataFrame] = None,
+    signal_overrides: Optional[dict] = None,
 ) -> BacktestResult:
-    """Replay `symbol` bar by bar. Pass `df` to backtest supplied data offline."""
+    """Replay `symbol` bar by bar. Pass `df` to backtest supplied data offline.
+
+    `signal_overrides` varies classify()'s thresholds without mutating global
+    config, so strategy variants can be A/B compared in one process.
+    """
     if df is None:
         df = fetch_history(symbol, period=period, interval="1d")
     if len(df) <= WARMUP_BARS + 2:
@@ -151,7 +159,7 @@ def run_backtest(
         window = df.iloc[: i + 1]
         try:
             ind = compute_indicators(window)
-            _, signal, _ = classify(ind)
+            _, signal, _ = classify(ind, signal_overrides)
         except Exception:
             signal = Direction.HOLD
 
