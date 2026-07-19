@@ -1,6 +1,7 @@
 """Runs one trading cycle through the compiled graph and shapes the result."""
 from __future__ import annotations
 
+from app.execution.paper_broker import get_broker
 from app.models.state import AgentState, new_state
 from app.observability.trace import NodeTrace, RunTrace, timed
 from app.workflows.graph import GRAPH
@@ -15,6 +16,11 @@ def run_cycle(symbol: str, run_id: str = "run") -> dict:
         final: AgentState = GRAPH.invoke(state)
     trace.record(NodeTrace(node="graph", duration_ms=t.ms, note="full cycle"))
 
+    # Mark the portfolio to the price this cycle saw so equity reflects the run.
+    ma = final.get("market_analysis")
+    last_prices = {symbol: ma.last_price} if ma and ma.last_price is not None else {}
+    portfolio = get_broker().snapshot(last_prices)
+
     return {
         "run_id": run_id,
         "symbol": symbol,
@@ -26,6 +32,7 @@ def run_cycle(symbol: str, run_id: str = "run") -> dict:
         "risk_assessment": _dump(final.get("risk_assessment")),
         "decision": _dump(final.get("decision")),
         "execution_result": _dump(final.get("execution_result")),
+        "portfolio": portfolio,
         "trace": trace.as_dict(),
     }
 

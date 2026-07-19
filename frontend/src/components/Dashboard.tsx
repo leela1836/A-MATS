@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   API_BASE,
   checkHealth,
+  getPortfolio,
+  getTrades,
+  resetPortfolio,
   runCycle,
+  type PaperTrade,
+  type Portfolio,
   type RunResult,
 } from "@/lib/api";
 import { Field, StageCard, type Status } from "./StageCard";
+import { PortfolioPanel } from "./PortfolioPanel";
 
 function fmt(n: number | null | undefined, digits = 2): string {
   return n === null || n === undefined ? "—" : n.toFixed(digits);
@@ -19,6 +25,18 @@ export function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [trades, setTrades] = useState<PaperTrade[]>([]);
+
+  const refreshPortfolio = useCallback(async () => {
+    try {
+      const [p, t] = await Promise.all([getPortfolio(), getTrades(20)]);
+      setPortfolio(p);
+      setTrades(t);
+    } catch {
+      /* backend offline — leave last known state */
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -27,23 +45,36 @@ export function Dashboard() {
       if (active) setOnline(ok);
     };
     ping();
+    refreshPortfolio();
     const id = setInterval(ping, 5000);
     return () => {
       active = false;
       clearInterval(id);
     };
-  }, []);
+  }, [refreshPortfolio]);
 
   const run = async () => {
     setLoading(true);
     setError(null);
     try {
-      setResult(await runCycle(symbol.trim().toUpperCase()));
+      const res = await runCycle(symbol.trim().toUpperCase());
+      setResult(res);
+      setPortfolio(res.portfolio);
+      await refreshPortfolio();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reset = async () => {
+    try {
+      setPortfolio(await resetPortfolio());
+      setTrades([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -114,6 +145,12 @@ export function Dashboard() {
           <div className="text-xs text-muted mt-1">
             Is the backend running at {API_BASE}?
           </div>
+        </div>
+      )}
+
+      {portfolio && (
+        <div className="mb-6">
+          <PortfolioPanel portfolio={portfolio} trades={trades} onReset={reset} />
         </div>
       )}
 

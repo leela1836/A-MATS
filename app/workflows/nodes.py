@@ -150,23 +150,50 @@ def decision_node(state: AgentState) -> dict:
 
 
 def execution_node(state: AgentState) -> dict:
-    """Simulation-only fill. Never touches a broker in the skeleton."""
-    trading_cfg = get_config("trading")
-    mode = trading_cfg["mode"].get("current", "simulation")
-    sim = trading_cfg["mode"].get("simulation", {})
-    slippage = float(sim.get("fixed_slippage", 0.0))
+    """Execute the decision against the in-app paper portfolio.
+
+    No external broker: the order fills against our own virtual INR portfolio.
+    HOLD decisions place no order. Order size comes from the risk-approved
+    size_percent, converted to whole shares at the slippage-adjusted price.
+    """
+    from app.execution.paper_broker import get_broker
+
+    trading_cfg = get_config("trading")["mode"]
+    mode = trading_cfg.get("current", "paper")
+    block = trading_cfg.get(mode, {})
+    slippage_pct = float(block.get("percentage_slippage", 0.0))
 
     d = state["decision"]
-    fill_price = d.entry_price + (slippage if d.action == Direction.LONG else -slippage)
-    result = ExecutionResult(
-        symbol=d.symbol,
-        filled=True,
-        fill_price=round(fill_price, 4),
-        size_percent=d.size_percent,
-        mode=mode,
-        note="simulated fill (skeleton)",
-    )
-    return {"execution_result": result}
+    ma = state["market_analysis"]
+    ref_price = ma.last_price
+
+    # HOLD → no trade.
+    if d.action == Direction.HOLD:
+        return {"execution_result": ExecutionResult(
+            symbol=d.symbol, filled=False, action=d.action, mode=mode,
+            note="hold — no order placed",
+        )}
+
+    side = "buy" if d.action == Direction.LONG else "sell"
+    # Slippage pushes the fill against us (worse) on both sides.
+    fill_price = ref_price * (1 + slippage_pct) if side == "buy" else ref_price * (1 - slippage_pct)
+    fill_price = round(fill_price, 2)
+
+    broker = get_broker()
+    qty = broker.size_to_qty(d.size_percent, fill_price, {d.symbol: ref_price})
+    if qty <= 0:
+        return {"execution_result": ExecutionResult(
+            symbol=d.symbol, filled=False, action=d.action, fill_price=fill_price,
+            size_percent=d.size_percent, mode=mode,
+            note="size too small for one share at current equity",
+        )}
+
+    trade = broker.place_order(d.symbol, side, qty, fill_price, note=d.rationale[:120])
+    return {"execution_result": ExecutionResult(
+        symbol=d.symbol, filled=True, action=d.action, qty=qty,
+        fill_price=trade.price, size_percent=d.size_percent, mode=mode,
+        note=f"paper {side} {qty} @ {trade.price} (comm {trade.commission})",
+    )}
 
 
 def _finite(x: float) -> bool:

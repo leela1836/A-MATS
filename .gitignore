@@ -24,6 +24,8 @@ frontend/.env*.local
 logs/
 data/raw/
 data/cache/
+data/portfolio.json
+data/*.json.tmp
 
 # Databases (local dev artifacts)
 *.db

@@ -18,17 +18,17 @@ data_sources:
     rate_limit_per_minute: 60
     timeout_seconds: 30
 
-  kite_connect:
-    # Zerodha Kite Connect — historical + live for account holders (paid).
+  groww_api:
+    # Groww API — historical + live quotes for account holders.
     enabled: false
-    api_key_env: KITE_API_KEY
-    api_secret_env: KITE_API_SECRET
+    api_key_env: GROWW_API_KEY
+    api_secret_env: GROWW_API_SECRET
     rate_limit_per_minute: 180
     timeout_seconds: 30
 
   websocket_feed:
     enabled: false
-    provider: kite  # Options: kite, upstox, angel_one
+    provider: groww  # Options: groww, upstox, angel_one
     api_key_env: WS_API_KEY
     reconnect_delay_seconds: 5
     max_reconnect_attempts: 10

@@ -65,9 +65,11 @@ class TradingDecision(BaseModel):
 class ExecutionResult(BaseModel):
     symbol: str
     filled: bool
-    fill_price: float
-    size_percent: float
-    mode: str  # "simulation" | "paper" | "live"
+    action: Direction = Direction.HOLD
+    qty: int = 0
+    fill_price: float = 0.0
+    size_percent: float = 0.0
+    mode: str = "paper"  # "simulation" | "paper" | "live"
     note: str = ""
 
 

@@ -18,7 +18,10 @@ def test_happy_path_reaches_execution():
     assert result["halted"] is False
     assert result["decision"] is not None
     assert result["execution_result"]["filled"] is True
-    assert result["execution_result"]["mode"] == "simulation"
+    assert result["execution_result"]["mode"] == "paper"
+    assert result["execution_result"]["qty"] >= 1
+    # Paper order actually moved the portfolio.
+    assert result["portfolio"]["open_positions"][0]["symbol"] == "RELIANCE.NS"
     # Contract shape: every stage populated.
     for stage in ("market_analysis", "reasoned_analysis", "evaluation_scores",
                   "risk_assessment", "decision", "execution_result"):

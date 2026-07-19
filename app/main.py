@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import all_configs, get_config
+from app.execution.paper_broker import get_broker
 from app.workflows.runner import run_cycle
 
 app = FastAPI(title="A-MATS", version="0.1.0")
@@ -44,3 +45,22 @@ def configs() -> dict:
 def run(symbol: str) -> dict:
     """Run one trading cycle through the graph for a single symbol."""
     return run_cycle(symbol.upper(), run_id=f"api-{symbol.lower()}")
+
+
+@app.get("/portfolio")
+def portfolio() -> dict:
+    """Current virtual paper portfolio (cash, positions, P&L)."""
+    return get_broker().snapshot()
+
+
+@app.get("/trades")
+def trades(limit: int = 50) -> dict:
+    """Most recent paper trades, newest first."""
+    return {"trades": get_broker().recent_trades(limit)}
+
+
+@app.post("/portfolio/reset")
+def portfolio_reset() -> dict:
+    """Reset the virtual portfolio to its starting cash."""
+    get_broker().reset()
+    return get_broker().snapshot()

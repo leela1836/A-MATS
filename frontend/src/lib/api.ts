@@ -49,9 +49,45 @@ export interface TradingDecision {
 export interface ExecutionResult {
   symbol: string;
   filled: boolean;
+  action: string;
+  qty: number;
   fill_price: number | null;
   size_percent: number;
   mode: string;
+  note: string;
+}
+
+export interface OpenPosition {
+  symbol: string;
+  qty: number;
+  avg_price: number;
+  mark_price: number;
+  unrealized_pnl: number;
+}
+
+export interface Portfolio {
+  currency: string;
+  starting_cash: number;
+  cash: number;
+  positions_value: number;
+  equity: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+  total_pnl: number;
+  return_percent: number;
+  open_positions: OpenPosition[];
+  trade_count: number;
+}
+
+export interface PaperTrade {
+  seq: number;
+  symbol: string;
+  side: string;
+  qty: number;
+  price: number;
+  commission: number;
+  realized_pnl: number;
+  cash_after: number;
   note: string;
 }
 
@@ -83,6 +119,7 @@ export interface RunResult {
   risk_assessment: RiskAssessment | null;
   decision: TradingDecision | null;
   execution_result: ExecutionResult | null;
+  portfolio: Portfolio;
   trace: RunTrace;
 }
 
@@ -93,6 +130,24 @@ export async function runCycle(symbol: string): Promise<RunResult> {
   if (!res.ok) {
     throw new Error(`Run failed (${res.status}): ${await res.text()}`);
   }
+  return res.json();
+}
+
+export async function getPortfolio(): Promise<Portfolio> {
+  const res = await fetch(`${API_BASE}/portfolio`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Portfolio fetch failed (${res.status})`);
+  return res.json();
+}
+
+export async function getTrades(limit = 20): Promise<PaperTrade[]> {
+  const res = await fetch(`${API_BASE}/trades?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Trades fetch failed (${res.status})`);
+  return (await res.json()).trades;
+}
+
+export async function resetPortfolio(): Promise<Portfolio> {
+  const res = await fetch(`${API_BASE}/portfolio/reset`, { method: "POST" });
+  if (!res.ok) throw new Error(`Reset failed (${res.status})`);
   return res.json();
 }
 

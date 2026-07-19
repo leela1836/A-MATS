@@ -4,7 +4,7 @@
 # ─── Trading Mode ───
 # Currency: INR. Balances and slippage are in rupees.
 mode:
-  current: simulation  # Options: simulation, paper, live
+  current: paper  # Options: simulation, paper, live
   currency: INR
   simulation:
     initial_balance: 1000000.0   # ₹10,00,000
@@ -15,17 +15,24 @@ mode:
     fill_rate: 0.95              # 95% of orders fill
     latency_ms: 50
   paper:
+    # In-app paper trading: the agent trades a virtual INR portfolio owned and
+    # rendered by our own web app. No external broker is contacted. The broker
+    # field below only matters if live execution is later routed to a real
+    # broker; paper stays fully in-app.
     initial_balance: 1000000.0
-    broker: zerodha  # Options: zerodha, upstox, angel_one
+    in_app: true
+    broker: groww  # Options: groww, upstox, angel_one
+    commission_per_trade: 20.0   # ~₹20 flat brokerage per order
+    percentage_slippage: 0.0005  # 0.05% applied to the fill price
     api_key_env: PAPER_API_KEY
     api_secret_env: PAPER_API_SECRET
-    base_url: https://api.kite.trade
+    base_url: https://api.groww.in
   live:
     enabled: false
-    broker: zerodha
+    broker: groww
     api_key_env: LIVE_API_KEY
     api_secret_env: LIVE_API_SECRET
-    base_url: https://api.kite.trade
+    base_url: https://api.groww.in
     require_confirmation: true
 
 # ─── Execution ───
