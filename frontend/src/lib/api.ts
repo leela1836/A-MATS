@@ -128,6 +128,14 @@ export interface RunTrace {
   nodes: NodeTrace[];
 }
 
+export interface MarketStatus {
+  is_open: boolean;
+  reason: string;
+  now_ist: string;
+  session: string;
+  next_open_ist: string | null;
+}
+
 export interface RunResult {
   run_id: string;
   symbol: string;
@@ -141,6 +149,7 @@ export interface RunResult {
   decision: TradingDecision | null;
   execution_result: ExecutionResult | null;
   portfolio: Portfolio;
+  market_status: MarketStatus;
   trace: RunTrace;
 }
 

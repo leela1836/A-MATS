@@ -156,6 +156,21 @@ export function Dashboard() {
 
       {r && (
         <>
+          {!r.market_status.is_open && (
+            <div className="mb-6 rounded-md border border-halt/40 bg-halt/10 px-4 py-3 text-sm">
+              <span className="text-halt font-medium">Market closed</span>{" "}
+              <span className="font-mono text-foreground">
+                {r.market_status.reason}
+              </span>
+              <div className="text-xs text-muted mt-1 font-mono">
+                {r.market_status.now_ist}
+                {r.market_status.next_open_ist &&
+                  ` · next open ${r.market_status.next_open_ist}`}
+                {" · analysis runs, but orders are blocked against a stale close"}
+              </div>
+            </div>
+          )}
+
           {r.halted && (
             <div className="mb-6 rounded-md border border-halt/40 bg-halt/10 px-4 py-3 text-sm">
               <span className="text-halt font-medium">Run halted:</span>{" "}

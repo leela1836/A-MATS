@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.execution.paper_broker import get_broker
+from app.market_calendar import market_status
 from app.models.state import AgentState, new_state
 from app.observability.trace import NodeTrace, RunTrace, timed
 from app.workflows.graph import GRAPH
@@ -47,6 +48,7 @@ def run_cycle(symbol: str, run_id: str = "run") -> dict:
         "decision": _dump(final.get("decision")),
         "execution_result": _dump(final.get("execution_result")),
         "portfolio": portfolio,
+        "market_status": market_status().as_dict(),
         "trace": trace.as_dict(),
     }
 

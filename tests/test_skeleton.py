@@ -49,6 +49,23 @@ def test_evaluation_levels_ordered_for_long():
     assert r["stop_loss"] < r["entry_price"] < r["take_profit"]
 
 
+def test_no_order_placed_when_market_is_closed(monkeypatch):
+    """Outside the NSE session yfinance still returns the previous close, and
+    nothing about it looks stale — so the guard must block the fill."""
+    from app import market_calendar
+
+    monkeypatch.setattr(
+        market_calendar, "trading_allowed",
+        lambda now=None: (False, "market closed — weekend (Sunday)"),
+    )
+    result = run_cycle("RELIANCE.NS")
+    assert result["halted"] is False           # analysis still runs
+    assert result["decision"] is not None      # a decision is still produced
+    assert result["execution_result"]["filled"] is False
+    assert "market closed" in result["execution_result"]["note"]
+    assert result["portfolio"]["open_positions"] == []
+
+
 def test_hold_signal_places_no_order():
     """A sideways/HOLD read passes evaluation but places no paper order."""
     result = run_cycle("SIDEWAYS.NS")

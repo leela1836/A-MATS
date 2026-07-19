@@ -204,9 +204,22 @@ def execution_node(state: AgentState) -> dict:
     block = trading_cfg.get(mode, {})
     slippage_pct = float(block.get("percentage_slippage", 0.0))
 
+    from app.market_calendar import trading_allowed
+
     d = state["decision"]
     ma = state["market_analysis"]
     ref_price = ma.last_price
+
+    # Never fill against a stale close. Outside the NSE session the latest
+    # bar is the previous trading day's, and nothing about it looks wrong —
+    # so this guard is what stops a 22:00-Sunday "trade" at Friday's price.
+    allowed, why = trading_allowed()
+    if not allowed:
+        return {"execution_result": ExecutionResult(
+            symbol=d.symbol, filled=False, action=d.action,
+            size_percent=d.size_percent, mode=mode,
+            note=f"no order — {why}",
+        )}
 
     # HOLD → no trade.
     if d.action == Direction.HOLD:

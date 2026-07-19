@@ -101,8 +101,28 @@ scheduling:
   market_open_analysis: true
   market_close_analysis: true
   weekend_trading: false
-  # NSE trading holidays (equity segment). Verify annually against the official
-  # NSE calendar; prefer fetching live via nsepython when available.
+
+  # ACTUAL DATES the market-hours guard checks (app/market_calendar.py).
+  # Only fixed-date holidays are seeded below. Most NSE holidays follow lunar
+  # festivals whose dates MOVE every year and cannot be derived — Holi,
+  # Diwali, Eid, Ram Navami, Dussehra, Guru Nanak Jayanti, Good Friday etc.
+  # Copy those from the official NSE holiday circular each year and add them
+  # here. A date that is missing is treated as a NORMAL TRADING DAY, so an
+  # omission surfaces as an unexpected trade rather than silent skipping.
+  # Weekends are handled automatically and need no entries.
+  holiday_dates:
+    # 2026 — fixed-date only, VERIFY against the NSE circular
+    - 2026-01-26   # Republic Day
+    - 2026-08-15   # Independence Day
+    - 2026-10-02   # Mahatma Gandhi Jayanti
+    - 2026-12-25   # Christmas
+    # 2027 — fixed-date only
+    - 2027-01-26   # Republic Day
+    - 2027-08-15   # Independence Day
+    - 2027-10-02   # Mahatma Gandhi Jayanti
+    - 2027-12-25   # Christmas
+
+  # Human-readable reference list (NOT used for date checks — see holiday_dates)
   holidays:
     - Republic_Day          # 26 Jan
     - Maha_Shivaratri

@@ -5,6 +5,7 @@ deterministic market-data provider so the graph never hits the network.
 """
 import pytest
 
+from app import market_calendar
 from app.collectors import market_collector, news_collector
 from app.execution import paper_broker
 from app.models.state import Direction, MarketAnalysis
@@ -63,6 +64,18 @@ def fake_news(monkeypatch):
 
     news_agent.clear_cache()  # sentiment cache must not leak between tests
     monkeypatch.setattr(news_collector, "_provider", FakeNewsProvider())
+
+
+@pytest.fixture(autouse=True)
+def market_open(monkeypatch):
+    """Pin the session to OPEN so pipeline tests don't depend on the clock.
+
+    Without this the suite passes on a Tuesday afternoon and fails on a
+    Sunday. Tests that exercise the closed-market path override this.
+    """
+    monkeypatch.setattr(
+        market_calendar, "trading_allowed", lambda now=None: (True, "test: forced open")
+    )
 
 
 @pytest.fixture(autouse=True)

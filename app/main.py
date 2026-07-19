@@ -47,6 +47,16 @@ def run(symbol: str) -> dict:
     return run_cycle(symbol.upper(), run_id=f"api-{symbol.lower()}")
 
 
+@app.get("/market/status")
+def market() -> dict:
+    """Whether the NSE session is open right now (IST)."""
+    from app.market_calendar import market_status, trading_allowed
+
+    status = market_status().as_dict()
+    allowed, why = trading_allowed()
+    return {**status, "orders_allowed": allowed, "orders_reason": why}
+
+
 @app.post("/backtest/{symbol}")
 def backtest(symbol: str, period: str = "2y", include_trades: bool = True) -> dict:
     """Replay the deterministic technical strategy over history.
