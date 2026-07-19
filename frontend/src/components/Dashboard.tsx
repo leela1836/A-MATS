@@ -183,12 +183,72 @@ export function Dashboard() {
             </StageCard>
 
             <StageCard
+              title="News"
+              subtitle="curated Indian financial sources"
+              status={r.news_signals ? "pass" : "skipped"}
+            >
+              {r.news_signals && (
+                <>
+                  <Field
+                    label="sentiment"
+                    value={
+                      <span
+                        className={
+                          r.news_signals.sentiment_score > 0.15
+                            ? "text-pass"
+                            : r.news_signals.sentiment_score < -0.15
+                              ? "text-fail"
+                              : "text-muted"
+                        }
+                      >
+                        {r.news_signals.sentiment_score > 0 ? "+" : ""}
+                        {fmt(r.news_signals.sentiment_score)} ({r.news_signals.sentiment_label})
+                      </span>
+                    }
+                  />
+                  <Field label="confidence" value={fmt(r.news_signals.confidence)} />
+                  <Field label="articles" value={String(r.news_signals.article_count)} />
+                  {r.news_signals.key_events.length > 0 && (
+                    <div className="pt-1">
+                      <div className="text-muted mb-1">key_events</div>
+                      {r.news_signals.key_events.map((e, i) => (
+                        <div key={i} className="text-foreground pl-2">· {e}</div>
+                      ))}
+                    </div>
+                  )}
+                  {r.news_signals.articles.length > 0 && (
+                    <details className="pt-2">
+                      <summary className="cursor-pointer text-muted hover:text-foreground">
+                        headlines ({r.news_signals.articles.length})
+                      </summary>
+                      <div className="pt-2 space-y-1">
+                        {r.news_signals.articles.map((a, i) => (
+                          <div key={i} className="flex gap-2">
+                            <span
+                              className={
+                                a.relevance === "direct" ? "text-accent" : "text-muted"
+                              }
+                            >
+                              [{a.relevance}]
+                            </span>
+                            <span className="text-foreground flex-1">{a.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </>
+              )}
+            </StageCard>
+
+            <StageCard
               title="Reasoning"
               subtitle="thesis + levels"
               status={stage(!!r.reasoned_analysis, false)}
             >
               {r.reasoned_analysis && (
                 <>
+                  <div className="text-foreground pb-1">{r.reasoned_analysis.thesis}</div>
                   <Field label="direction" value={r.reasoned_analysis.direction} />
                   <Field label="entry" value={fmt(r.reasoned_analysis.entry_price)} />
                   <Field label="stop_loss" value={fmt(r.reasoned_analysis.stop_loss)} />

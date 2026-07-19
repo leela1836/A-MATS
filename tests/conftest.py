@@ -5,7 +5,7 @@ deterministic market-data provider so the graph never hits the network.
 """
 import pytest
 
-from app.collectors import market_collector
+from app.collectors import market_collector, news_collector
 from app.execution import paper_broker
 from app.models.state import Direction, MarketAnalysis
 
@@ -48,6 +48,21 @@ class FakeMarketProvider:
 @pytest.fixture(autouse=True)
 def fake_market(monkeypatch):
     monkeypatch.setattr(market_collector, "_provider", FakeMarketProvider())
+
+
+class FakeNewsProvider:
+    """Returns no articles, so graph tests never touch the network."""
+
+    def get_news(self, symbol: str):
+        return news_collector.NewsBundle(symbol=symbol, articles=[], sources_used=[])
+
+
+@pytest.fixture(autouse=True)
+def fake_news(monkeypatch):
+    from app.agents import news as news_agent
+
+    news_agent.clear_cache()  # sentiment cache must not leak between tests
+    monkeypatch.setattr(news_collector, "_provider", FakeNewsProvider())
 
 
 @pytest.fixture(autouse=True)

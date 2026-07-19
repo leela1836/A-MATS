@@ -6,11 +6,17 @@ grow as real agents replace the stubs.
 """
 from __future__ import annotations
 
+import operator
 from enum import Enum
-from typing import Any, Optional, TypedDict
+from typing import Annotated, Any, Optional, TypedDict
 
 
 from pydantic import BaseModel, Field
+
+
+def merge_metrics(a: Optional[dict], b: Optional[dict]) -> dict:
+    """Reducer so parallel nodes can each contribute their own metrics key."""
+    return {**(a or {}), **(b or {})}
 
 
 class Direction(str, Enum):
@@ -26,6 +32,26 @@ class MarketAnalysis(BaseModel):
     signal: Direction
     confidence: float = Field(ge=0.0, le=1.0)
     indicators: dict[str, float] = Field(default_factory=dict)
+
+
+class NewsArticleRef(BaseModel):
+    title: str
+    source: str
+    url: str = ""
+    relevance: str = "market"
+    age_hours: Optional[float] = None
+
+
+class NewsSignals(BaseModel):
+    symbol: str
+    sentiment_score: float = Field(ge=-1.0, le=1.0)  # -1 bearish .. +1 bullish
+    sentiment_label: str = "neutral"
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    key_events: list[str] = Field(default_factory=list)
+    summary: str = ""
+    article_count: int = 0
+    sources_used: list[str] = Field(default_factory=list)
+    articles: list[NewsArticleRef] = Field(default_factory=list)
 
 
 class ReasonedAnalysis(BaseModel):
@@ -82,16 +108,18 @@ class AgentState(TypedDict, total=False):
 
     # Agent / engine outputs
     market_analysis: Optional[MarketAnalysis]
+    news_signals: Optional[NewsSignals]
     reasoned_analysis: Optional[ReasonedAnalysis]
     evaluation_scores: Optional[EvaluationScores]
     risk_assessment: Optional[RiskAssessment]
     decision: Optional[TradingDecision]
     execution_result: Optional[ExecutionResult]
 
-    # Metadata
-    errors: list[str]
-    warnings: list[str]
-    metrics: dict[str, Any]
+    # Metadata. These carry reducers because market and news run concurrently
+    # and would otherwise conflict writing the same key in one superstep.
+    errors: Annotated[list[str], operator.add]
+    warnings: Annotated[list[str], operator.add]
+    metrics: Annotated[dict[str, Any], merge_metrics]
     halted: bool
     halt_reason: str
 
@@ -102,6 +130,7 @@ def new_state(symbols: list[str], analysis_type: str = "combined") -> AgentState
         symbols=symbols,
         analysis_type=analysis_type,
         market_analysis=None,
+        news_signals=None,
         reasoned_analysis=None,
         evaluation_scores=None,
         risk_assessment=None,

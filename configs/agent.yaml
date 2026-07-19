@@ -5,7 +5,15 @@
 llm:
   provider: google  # Options: google, openai
   # Google reads GOOGLE_API_KEY; OpenAI reads OPENAI_API_KEY (both from .env).
-  model: gemini-2.5-flash  # Alternatives: gemini-2.5-pro, gemini-2.5-flash-lite
+  # Free-tier AI Studio keys are capped at ~20 requests/DAY *per model*, so
+  # the chain below matters: when the primary is exhausted (HTTP 429) the
+  # client falls through to the next model, which has its own quota. Three
+  # models ~= 60 requests/day instead of 20.
+  # Note: gemini-2.5-pro and the 2.0-* models 429 without a paid plan.
+  model: gemini-2.5-flash
+  fallback_models:
+    - gemini-3.5-flash        # newer; separate 20/day quota
+    - gemini-2.5-flash-lite   # retired for new keys, but free if yours has it
   temperature: 0.2
   max_tokens: 4096
   timeout_seconds: 60
@@ -49,7 +57,7 @@ market_agent:
 # ─── News Agent ───
 news_agent:
   enabled: true
-  model: gemini-2.5-flash-lite
+  model: gemini-2.5-flash
   temperature: 0.1
   prompt_version: v1
   sources:
@@ -64,7 +72,7 @@ news_agent:
 # ─── Knowledge Agent ───
 knowledge_agent:
   enabled: true
-  model: gemini-2.5-flash-lite
+  model: gemini-2.5-flash
   temperature: 0.3
   prompt_version: v1
   max_results: 5
@@ -77,7 +85,7 @@ knowledge_agent:
 # ─── Memory Agent ───
 memory_agent:
   enabled: true
-  model: gemini-2.5-flash-lite
+  model: gemini-2.5-flash
   temperature: 0.2
   prompt_version: v1
   short_term_ttl_minutes: 60
@@ -112,7 +120,7 @@ evaluation_engine:
 # ─── Risk Engine ───
 risk_engine:
   enabled: true
-  model: gemini-2.5-flash-lite
+  model: gemini-2.5-flash
   temperature: 0.1
   prompt_version: v1
   risk_assessment_depth: standard  # Options: quick, standard, thorough

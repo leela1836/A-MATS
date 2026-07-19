@@ -41,3 +41,58 @@ def test_unknown_model_uses_default_pricing():
     assert client._cost("some-future-model", 1_000_000, 0) == pytest.approx(
         client._DEFAULT_PRICING[0]
     )
+
+
+# ── quota fallback chain ──
+# Free-tier Gemini keys allow ~20 requests/day PER MODEL, so exhausting one
+# model must fall through to the next rather than failing the cycle.
+
+def test_model_chain_starts_with_primary_then_fallbacks():
+    chain = client.model_chain()
+    assert chain[0] == "gemini-2.5-flash"
+    assert len(chain) > 1, "a fallback chain is what multiplies the daily quota"
+    assert len(chain) == len(set(chain)), "no duplicate models"
+
+
+def test_explicit_model_overrides_primary():
+    assert client.model_chain("gemini-3.5-flash")[0] == "gemini-3.5-flash"
+
+
+def test_rate_limited_model_falls_through_to_next(monkeypatch):
+    monkeypatch.setenv("GOOGLE_API_KEY", "k")
+    seen = []
+
+    def fake_gemini(key, model, *a, **k):
+        seen.append(model)
+        if model == "gemini-2.5-flash":
+            raise client.ModelUnavailable(model, 429, "quota exhausted")
+        return '{"ok": true}', 10, 5
+
+    monkeypatch.setattr(client, "_gemini_call", fake_gemini)
+    result = client.complete_json("sys", {"a": 1})
+    assert seen[0] == "gemini-2.5-flash"      # primary tried first
+    assert result.model != "gemini-2.5-flash"  # and fell through
+    assert result.data == {"ok": True}
+
+
+def test_all_models_exhausted_raises(monkeypatch):
+    monkeypatch.setenv("GOOGLE_API_KEY", "k")
+
+    def always_429(key, model, *a, **k):
+        raise client.ModelUnavailable(model, 429, "quota")
+
+    monkeypatch.setattr(client, "_gemini_call", always_429)
+    with pytest.raises(client.LLMUnavailable, match="all models exhausted"):
+        client.complete_json("sys", {"a": 1})
+
+
+def test_retired_model_404_also_falls_through(monkeypatch):
+    monkeypatch.setenv("GOOGLE_API_KEY", "k")
+
+    def fake(key, model, *a, **k):
+        if model == "gemini-2.5-flash":
+            raise client.ModelUnavailable(model, 404, "retired")
+        return '{"ok": true}', 1, 1
+
+    monkeypatch.setattr(client, "_gemini_call", fake)
+    assert client.complete_json("sys", {}).data == {"ok": True}

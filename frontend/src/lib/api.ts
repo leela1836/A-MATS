@@ -12,6 +12,26 @@ export interface MarketAnalysis {
   indicators: Record<string, number | null>;
 }
 
+export interface NewsArticleRef {
+  title: string;
+  source: string;
+  url: string;
+  relevance: string;
+  age_hours: number | null;
+}
+
+export interface NewsSignals {
+  symbol: string;
+  sentiment_score: number;
+  sentiment_label: string;
+  confidence: number;
+  key_events: string[];
+  summary: string;
+  article_count: number;
+  sources_used: string[];
+  articles: NewsArticleRef[];
+}
+
 export interface ReasonedAnalysis {
   symbol: string;
   thesis: string;
@@ -114,6 +134,7 @@ export interface RunResult {
   halted: boolean;
   halt_reason: string;
   market_analysis: MarketAnalysis | null;
+  news_signals: NewsSignals | null;
   reasoned_analysis: ReasonedAnalysis | null;
   evaluation_scores: EvaluationScores | null;
   risk_assessment: RiskAssessment | null;

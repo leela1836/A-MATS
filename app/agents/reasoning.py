@@ -12,13 +12,18 @@ must be able to veto the LLM.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import ValidationError
 
 from app.config import get_config
 from app.llm.client import LLMUnavailable, complete_json
-from app.models.state import Direction, MarketAnalysis, ReasonedAnalysis
+from app.models.state import (
+    Direction,
+    MarketAnalysis,
+    NewsSignals,
+    ReasonedAnalysis,
+)
 from app.prompts import load_prompt
 
 
@@ -26,7 +31,9 @@ def _finite(x: float) -> bool:
     return x == x and x not in (float("inf"), float("-inf"))
 
 
-def reason(ma: MarketAnalysis) -> tuple[ReasonedAnalysis, dict[str, Any]]:
+def reason(
+    ma: MarketAnalysis, news: Optional[NewsSignals] = None
+) -> tuple[ReasonedAnalysis, dict[str, Any]]:
     """Return (analysis, usage). usage records source/tokens/cost for tracing."""
     # A broken feed never reaches the model — cheaper and safer to short-circuit.
     if not _finite(ma.last_price):
@@ -35,16 +42,27 @@ def reason(ma: MarketAnalysis) -> tuple[ReasonedAnalysis, dict[str, Any]]:
     cfg = get_config("agent").get("reasoning_engine", {})
     version = str(cfg.get("prompt_version", "v1"))
 
+    payload: dict[str, Any] = {
+        "symbol": ma.symbol,
+        "last_price": ma.last_price,
+        "trend": ma.trend,
+        "indicators": ma.indicators,
+        "technical_signal": ma.signal.value,
+    }
+    if news is not None:
+        payload["news"] = {
+            "sentiment_score": news.sentiment_score,
+            "sentiment_label": news.sentiment_label,
+            "confidence": news.confidence,
+            "key_events": news.key_events,
+            "summary": news.summary,
+            "article_count": news.article_count,
+        }
+
     try:
         result = complete_json(
             system_prompt=load_prompt("reasoning", version),
-            user_payload={
-                "symbol": ma.symbol,
-                "last_price": ma.last_price,
-                "trend": ma.trend,
-                "indicators": ma.indicators,
-                "technical_signal": ma.signal.value,
-            },
+            user_payload=payload,
             model=cfg.get("model"),
             temperature=cfg.get("temperature"),
         )

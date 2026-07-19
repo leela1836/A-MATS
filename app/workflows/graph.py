@@ -1,15 +1,22 @@
-"""LangGraph state machine wiring for the walking skeleton.
+"""LangGraph state machine wiring.
 
-Topology (linear MVP slice of the full architecture):
+Topology:
 
-    market -> reasoning -> evaluation -> [gate] -> risk -> [gate] -> decision -> execution
+    START ─┬─> market ─┐
+           └─> news   ─┴─> reasoning -> evaluation -> [gate] -> risk
+                                                                 │
+                          [gate] -> decision -> execution -> END
+
+`market` and `news` are independent gathering nodes and run concurrently;
+`reasoning` joins them (LangGraph waits for both incoming edges before
+running it). Their shared metadata keys use reducers — see AgentState.
 
 The [gate] edges route to END early when a node sets state["halted"], so a
 rejected proposal never reaches risk sizing or execution.
 """
 from __future__ import annotations
 
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from app.models.state import AgentState
 from app.workflows import nodes
@@ -24,14 +31,20 @@ def build_graph():
     g = StateGraph(AgentState)
 
     g.add_node("market", nodes.market_node)
+    g.add_node("news", nodes.news_node)
     g.add_node("reasoning", nodes.reasoning_node)
     g.add_node("evaluation", nodes.evaluation_node)
     g.add_node("risk", nodes.risk_node)
     g.add_node("decision", nodes.decision_node)
     g.add_node("execution", nodes.execution_node)
 
-    g.set_entry_point("market")
+    # Fan out: gather market data and news concurrently.
+    g.add_edge(START, "market")
+    g.add_edge(START, "news")
+    # Join: reasoning runs once both have landed.
     g.add_edge("market", "reasoning")
+    g.add_edge("news", "reasoning")
+
     g.add_edge("reasoning", "evaluation")
 
     # Evaluation gate: veto before risk sizing.

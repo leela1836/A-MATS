@@ -1,0 +1,82 @@
+# A-MATS News Sources — CURATED ALLOWLIST
+#
+# The news collector will ONLY fetch from domains listed here. Any URL whose
+# host is not in this file is refused before a request is made — the agent
+# cannot read arbitrary internet content by design.
+#
+# We use RSS feeds rather than HTML scraping because feeds are published for
+# syndication (stable, permitted, and cheap to parse). To add a source:
+#   1. add its entry below with the exact `domain`
+#   2. set `trust` (0-1) to weight it against the others
+#   3. keep `enabled: false` until the feed has been verified
+
+fetch:
+  timeout_seconds: 20
+  cache_ttl_seconds: 900        # 15 min — feeds update slowly; be a good citizen
+  max_articles_per_source: 25
+  max_articles_per_symbol: 12
+  lookback_hours: 48
+  user_agent: "AMATS/0.1 (research trading agent; RSS reader)"
+  follow_redirects: false       # a redirect off-domain must never be followed
+
+sources:
+  - name: moneycontrol_markets
+    domain: www.moneycontrol.com
+    url: https://www.moneycontrol.com/rss/marketreports.xml
+    trust: 0.9
+    enabled: true
+
+  - name: moneycontrol_business
+    domain: www.moneycontrol.com
+    url: https://www.moneycontrol.com/rss/business.xml
+    trust: 0.9
+    enabled: true
+
+  - name: economic_times_markets
+    domain: economictimes.indiatimes.com
+    url: https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms
+    trust: 0.85
+    enabled: true
+
+  - name: livemint_markets
+    domain: www.livemint.com
+    url: https://www.livemint.com/rss/markets
+    trust: 0.85
+    enabled: true
+
+  - name: business_standard_markets
+    domain: www.business-standard.com
+    url: https://www.business-standard.com/rss/markets-106.rss
+    trust: 0.9
+    enabled: true
+
+  - name: hindu_businessline_markets
+    domain: www.thehindubusinessline.com
+    url: https://www.thehindubusinessline.com/markets/feeder/default.rss
+    trust: 0.85
+    enabled: true
+
+# Ticker -> keywords used to decide whether an article concerns a symbol.
+# Keep aliases specific; loose aliases cause false matches.
+symbol_aliases:
+  RELIANCE.NS:   [reliance, "ril", jio, "reliance industries"]
+  TCS.NS:        ["tcs", "tata consultancy"]
+  HDFCBANK.NS:   ["hdfc bank", hdfcbank]
+  INFY.NS:       [infosys, "infy"]
+  ICICIBANK.NS:  ["icici bank", icicibank]
+  SBIN.NS:       ["sbi", "state bank of india"]
+  BHARTIARTL.NS: ["bharti airtel", airtel, bharti]
+  ITC.NS:        ["itc"]
+  LT.NS:         ["larsen", "l&t", "larsen & toubro"]
+  HINDUNILVR.NS: ["hindustan unilever", "hul"]
+
+# Terms that mark an article as broad market context (used for any symbol,
+# but weighted lower than a direct company mention).
+market_wide_terms:
+  - nifty
+  - sensex
+  - "d-street"
+  - dalal street
+  - indian markets
+  - sebi
+  - rbi

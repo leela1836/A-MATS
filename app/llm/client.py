@@ -43,6 +43,19 @@ class LLMUnavailable(RuntimeError):
     """No API key configured, or the provider could not be reached."""
 
 
+class ModelUnavailable(LLMUnavailable):
+    """This specific model is rate-limited (429) or retired (404).
+
+    Distinct from LLMUnavailable because each Gemini model carries its OWN
+    daily quota — exhausting one says nothing about the next, so the caller
+    should try the next model in the chain rather than give up.
+    """
+
+    def __init__(self, model: str, status: int, detail: str = ""):
+        self.model, self.status = model, status
+        super().__init__(f"{model}: HTTP {status} {detail[:120]}")
+
+
 @dataclass
 class LLMResult:
     data: dict[str, Any]
@@ -88,39 +101,65 @@ def complete_json(
         raise LLMUnavailable(f"{env} is not set")
 
     llm_cfg = get_config("agent").get("llm", {})
-    model = model or llm_cfg.get("model", "gemini-2.5-flash")
     temperature = llm_cfg.get("temperature", 0.2) if temperature is None else temperature
     timeout = float(llm_cfg.get("timeout_seconds", 60))
     max_tokens = int(llm_cfg.get("max_tokens", 4096))
 
     payload_text = json.dumps(user_payload)
-    last_err: Optional[Exception] = None
+    chain = model_chain(model)
+    exhausted: list[str] = []
 
-    for _ in range(max_retries):
-        try:
-            if provider == "google":
-                raw, pt, ct = _gemini_call(
-                    key, model, system_prompt, payload_text, temperature, max_tokens, timeout
+    for candidate in chain:
+        last_err: Optional[Exception] = None
+        for _ in range(max_retries):
+            try:
+                if provider == "google":
+                    raw, pt, ct = _gemini_call(
+                        key, candidate, system_prompt, payload_text,
+                        temperature, max_tokens, timeout,
+                    )
+                else:
+                    raw, pt, ct = _openai_call(
+                        key, candidate, system_prompt, payload_text, temperature, timeout
+                    )
+                data = json.loads(raw)
+                if not isinstance(data, dict):
+                    raise json.JSONDecodeError("expected a JSON object", raw, 0)
+                return LLMResult(
+                    data=data, model=candidate, prompt_tokens=pt, completion_tokens=ct,
+                    cost_usd=_cost(candidate, pt, ct), provider=provider,
                 )
-            else:
-                raw, pt, ct = _openai_call(
-                    key, model, system_prompt, payload_text, temperature, timeout
-                )
-            data = json.loads(raw)
-            if not isinstance(data, dict):
-                raise json.JSONDecodeError("expected a JSON object", raw, 0)
-            return LLMResult(
-                data=data, model=model, prompt_tokens=pt, completion_tokens=ct,
-                cost_usd=_cost(model, pt, ct), provider=provider,
-            )
-        except json.JSONDecodeError as exc:
-            last_err = exc  # malformed JSON: retry
-        except LLMUnavailable:
-            raise
-        except Exception as exc:
-            raise LLMUnavailable(f"LLM call failed: {exc}") from exc
+            except json.JSONDecodeError as exc:
+                last_err = exc  # malformed JSON: retry the same model
+            except ModelUnavailable as exc:
+                # This model's quota is spent (or it's retired) — the next
+                # model has an independent quota, so move on immediately.
+                exhausted.append(f"{candidate}({exc.status})")
+                last_err = exc
+                break
+            except LLMUnavailable:
+                raise
+            except Exception as exc:
+                raise LLMUnavailable(f"LLM call failed: {exc}") from exc
 
-    raise LLMUnavailable(f"LLM returned unparseable JSON: {last_err}")
+        if isinstance(last_err, json.JSONDecodeError):
+            raise LLMUnavailable(f"LLM returned unparseable JSON: {last_err}")
+
+    raise LLMUnavailable(
+        f"all models exhausted: {', '.join(exhausted) or 'none tried'}"
+    )
+
+
+def model_chain(preferred: Optional[str] = None) -> list[str]:
+    """Ordered models to try. Each Gemini model has its own daily quota, so
+    chaining multiplies the effective free-tier budget."""
+    llm_cfg = get_config("agent").get("llm", {})
+    primary = preferred or llm_cfg.get("model", "gemini-2.5-flash")
+    chain = [primary]
+    for m in llm_cfg.get("fallback_models", []) or []:
+        if m and m not in chain:
+            chain.append(str(m))
+    return chain
 
 
 def _gemini_call(
@@ -145,9 +184,12 @@ def _gemini_call(
         _GEMINI_ENDPOINT.format(model=model),
         params={"key": key}, json=body, timeout=timeout,
     )
+    if resp.status_code in (429, 404):
+        # 429 = daily/rate quota spent, 404 = model retired for this account.
+        # Both mean "try a different model", not "give up".
+        raise ModelUnavailable(model, resp.status_code, resp.text)
     if resp.status_code != 200:
-        detail = resp.text[:200]
-        raise LLMUnavailable(f"Gemini HTTP {resp.status_code}: {detail}")
+        raise LLMUnavailable(f"Gemini HTTP {resp.status_code}: {resp.text[:200]}")
 
     data = resp.json()
     candidates = data.get("candidates") or []

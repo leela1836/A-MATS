@@ -26,6 +26,7 @@ _CONFIG_FILES = {
     "risk": "risk.yaml",
     "market": "market.yaml",
     "trading": "trading.yaml",
+    "news": "news.yaml",
 }
 
 

@@ -40,6 +40,7 @@ def run_cycle(symbol: str, run_id: str = "run") -> dict:
         "halted": final.get("halted", False),
         "halt_reason": final.get("halt_reason", ""),
         "market_analysis": _dump(final.get("market_analysis")),
+        "news_signals": _dump(final.get("news_signals")),
         "reasoned_analysis": _dump(final.get("reasoned_analysis")),
         "evaluation_scores": _dump(final.get("evaluation_scores")),
         "risk_assessment": _dump(final.get("risk_assessment")),

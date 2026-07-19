@@ -47,17 +47,31 @@ def market_node(state: AgentState) -> dict:
         }
 
 
+def news_node(state: AgentState) -> dict:
+    """Gather sentiment from the curated Indian financial sources."""
+    from app.agents.news import analyse
+
+    symbol = state["symbols"][0]
+    with timed() as t:
+        signals, usage = analyse(symbol)
+
+    return {
+        "news_signals": signals,
+        "metrics": {"news": {**usage, "duration_ms": round(t.ms, 2)}},
+    }
+
+
 def reasoning_node(state: AgentState) -> dict:
     """Delegate to the Reasoning Engine (LLM, with deterministic fallback)."""
     from app.agents.reasoning import reason
 
-    ma = state["market_analysis"]
     with timed() as t:
-        reasoned, usage = reason(ma)
+        reasoned, usage = reason(state["market_analysis"], state.get("news_signals"))
 
-    metrics = dict(state.get("metrics") or {})
-    metrics["reasoning"] = {**usage, "duration_ms": round(t.ms, 2)}
-    return {"reasoned_analysis": reasoned, "metrics": metrics}
+    return {
+        "reasoned_analysis": reasoned,
+        "metrics": {"reasoning": {**usage, "duration_ms": round(t.ms, 2)}},
+    }
 
 
 def evaluation_node(state: AgentState) -> dict:
