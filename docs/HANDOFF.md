@@ -1,6 +1,6 @@
 # A-MATS — Handoff
 
-**Last updated:** 2026-07-19 · **Branch:** `master` · **Head:** `1d8df04` · **Tests:** 90 passing
+**Last updated:** 2026-07-24 · **Branch:** `master` · **Head:** `eb8560a` (+ uncommitted) · **Tests:** 127 passing
 
 Autonomous multi-agent trading system for the **Indian market (NSE)**. LangGraph
 orchestration, Gemini reasoning, in-app paper trading in INR.
@@ -23,6 +23,25 @@ Simple EMA/RSI trend-following does not appear to work on Indian large-caps.
 Do not add more agent layers expecting profit to appear. Better inputs make
 the agent *smarter about a losing strategy*. Profitability is a separate,
 unsolved problem.
+
+**Update 2026-07-24 — two measured filters now move it toward break-even,
+still not past it.** A/B over the same six large-caps / 5y (mean return/symbol):
+
+| arm | mean ret/symbol | trades | note |
+|---|---|---|---|
+| baseline | −3.21% | 339 | |
+| candlestick gate | −1.01% | 175 | +2.20pp — the workhorse |
+| learned NN validator (alone) | −2.71% | 308 | +0.50pp — gentle, low-coverage |
+| **NN + candlestick** | **−0.13%** | 132 | +3.08pp — best arm, ≈break-even |
+
+The NN validator (`app/ml/`) is a pure-numpy MLP that scores each candidate
+entry P(win) and vetoes the weakest. It has **genuine out-of-sample skill**:
+AUC **0.62** on the newest 30% of trades (temporal split), beating both
+coin-flip and a logistic baseline (0.45). But the portfolio numbers above for
+the *full 5y* are ~70% in-sample and therefore optimistic; the clean OOS
+evidence is the per-trade lift (win 36%→40%, mean ret +0.10→+0.67 per trade).
+Bottom line unchanged: filters stop the worst bleeding, they do not create a
+profitable edge.
 
 ---
 
@@ -77,6 +96,13 @@ app/
   collectors/market_collector.py   yfinance + EMA/RSI/ATR + classify()
   collectors/news_collector.py     RSS w/ DOMAIN ALLOWLIST
   collectors/nse_official.py       holidays, ASM, filings, market state
+  strategies/candlesticks.py       trend-aware pattern detection + net bias
+  ml/mlp.py                        pure-numpy MLP + scaler + AUC + save/load
+  ml/features.py                   shared extractor: technical + candle + volume
+  ml/dataset.py                    backtest trades -> labelled (features, win)
+  ml/train.py                      temporal split, train + OOS eval, save model
+  ml/validator.py                  load model, P(win), apply_nn_filter gate
+  ml/models/trade_validator.json   trained model artifact (regenerate via train)
   agents/reasoning.py              Gemini + deterministic fallback
   agents/news.py                   sentiment + neutral fallback
   prompts/*_v1.md                  versioned prompts (diffable)
@@ -151,21 +177,30 @@ links are dropped. Adding a source is a config change. Don't bypass this.
 
 ## 5. Built vs not
 
-**Working:** live NSE data · indicators (EMA20/50/200, RSI14, ATR14) · news
-(6 media RSS + NSE filings) · Gemini reasoning w/ versioned prompts · evaluation
-veto gate · risk + ASM/restricted screen · in-app INR paper broker · backtester
-· market-hours guard · dashboard · token/cost tracing · 90 tests.
+**Working:** live NSE data · indicators (EMA20/50/200, RSI14, ATR14) ·
+**candlestick patterns (trend-aware) + gate** · **learned NN trade validator
+(volume/liquidity-aware, OOS-validated) + gate** · news (6 media RSS + NSE
+filings) · Gemini reasoning w/ versioned prompts · evaluation veto gate · risk
++ ASM/restricted screen · in-app INR paper broker · backtester · market-hours
+guard · dashboard · token/cost tracing · 127 tests.
+
+**Both new filters are opt-in** (`require_pattern_confirmation`,
+`require_nn_confirmation` — default `False`), and both live and backtest call
+the *same* gate functions so they cannot diverge. The NN gate **fails open**
+(no model / scoring error → signal unchanged), never silently blocking every
+trade. Retrain: `./.venv/Scripts/python.exe -m app.ml.train`.
 
 **Not built** (user explicitly asked about these):
-- **Candlestick patterns** — engulfing/hammer/doji/star + trend context
 - **RAG book knowledge** — ⚠️ *sourcing problem*: most trading books are
   copyrighted and cannot be downloaded. Viable: public-domain classics
   (Livermore, Wyckoff, Gann), SEBI/NSE educational material, or books the user
   supplies.
 - **Invalidation reasoning** — thesis must state what would prove it wrong
 - **Reflection engine** — backtrack a wrong call, name the missed factor.
-  ⚠️ *needs closed trades*; the paper book has none. Train it against
-  **backtest** trades, which give hundreds of known outcomes immediately.
+  ⚠️ *Partly addressed*: the NN validator (`app/ml/`) already learns from
+  **backtest** trade outcomes (hundreds of labelled wins/losses) to score new
+  entries. What's still missing is the *narrative* half — naming the missed
+  factor per trade — versus the current numeric P(win).
 - **Memory** — index reflections so similar setups recall past mistakes
 - **Dynamic mini-agent creation** — the user's own plan deliberately deferred
   this post-MVP. Recommend keeping it deferred: self-modifying agents are hard
@@ -175,7 +210,7 @@ veto gate · risk + ASM/restricted screen · in-app INR paper broker · backtest
 
 ## 5b. Progress against the original 14-phase plan
 
-**7 of 14 complete (~50%), 2 partial, 5 not started.**
+**7 of 14 complete (~50%), 3 partial, 4 not started.**
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -183,13 +218,13 @@ veto gate · risk + ASM/restricted screen · in-app INR paper broker · backtest
 | 1 | FastAPI + Next.js dashboard | ✅ complete |
 | 2 | Data collectors | ⚠️ ~50% — market ✅ news ✅; **macro ❌ PostgreSQL ❌** |
 | 3 | RAG book brain (Qdrant) | ❌ not started |
-| 4 | Indicators & strategies | ⚠️ ~40% — EMA/RSI/ATR ✅; **MACD ❌ candlesticks ❌ S/R ❌** |
+| 4 | Indicators & strategies | ⚠️ ~65% — EMA/RSI/ATR ✅ candlesticks ✅ volume/liquidity ✅; **MACD ❌ S/R ❌** |
 | 5 | State model + orchestrator | ✅ ~90% — no dynamic supervisor node |
 | 6 | Reasoning + Evaluation | ✅ complete (evaluation is rule-based, not LLM) |
 | 7 | Risk + Decision | ✅ complete (exceeded — ASM/compliance screen) |
 | 8 | Replay simulation mode | ❌ not started (backtester overlaps) |
 | 9 | Backtester + analytics | ✅ complete (exceeded — A/B harness) |
-| 10 | Post-trade reflection | ❌ not started |
+| 10 | Post-trade reflection | ⚠️ ~40% — NN validator learns from backtest outcomes; narrative reflection ❌ |
 | 11 | Long-term memory | ❌ not started |
 | 12 | Paper trading | ✅ complete (built early, exceeded) |
 | 13 | Live broker + Docker | ❌ not started |
@@ -204,7 +239,8 @@ JSON. Fine now, needs replacing before multi-symbol scale or stored history.
 
 **Built outside the plan:** `market_calendar.py`, `nse_official.py`,
 multi-provider `llm/client.py` with quota fallback, `observability/trace.py`,
-and the A/B measurement methodology.
+the A/B measurement methodology, and the `app/ml/` learned-validator stack
+(pure-numpy MLP, no torch/sklearn dependency).
 
 ⚠️ Phase count is not the blocker. Phases 3, 10 and 11 make the agent
 *smarter*; none make the signal *profitable*. That problem sits outside the
@@ -212,13 +248,21 @@ plan entirely.
 
 ## 6. Next steps, in priority order
 
-1. **Attack profitability** — the real blocker. Options: different strategy
-   family (mean-reversion, breakout w/ volume), longer holds, walk-forward
-   validation to avoid curve-fitting. Everything else is polish until this moves.
-2. **Candlestick patterns** — concrete, backtestable, no sourcing/quota issues.
-3. **Invalidation reasoning** — cheap prompt change; prerequisite for (4).
-4. **Reflection engine** — train against backtest trades.
-5. **Memory** — only after reflections exist to index.
+1. **Attack profitability** — still the real blocker. The candlestick + NN
+   filters reached ≈break-even by *removing* bad trades; they cannot add an
+   edge that isn't there. Options: different strategy family (mean-reversion,
+   breakout w/ volume), longer holds, a proper rolling walk-forward.
+2. **Rolling walk-forward for the NN gate** — the current model is validated
+   OOS on one temporal split (AUC 0.62), but the *portfolio* A/B over full 5y
+   is ~70% in-sample. A retrain-then-test-forward loop would give an honest
+   portfolio number and expose threshold curve-fit. Do this before trusting
+   the NN gate live.
+3. **Bigger / broader training set** — 339 trades over 6 names is thin for an
+   MLP. Add symbols and years; watch AUC stability, not in-sample fit.
+4. **Invalidation reasoning** — cheap prompt change; the narrative half of
+   reflection the NN validator doesn't cover.
+5. **Memory** — index reflections + validator scores so similar setups recall
+   past outcomes.
 
 **Method note:** always A/B a strategy change through the backtester with
 `signal_overrides=` before keeping it, and report the number honestly even when

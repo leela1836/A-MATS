@@ -77,6 +77,8 @@ def signal_params(overrides: Optional[dict] = None) -> dict:
         "min_trend_separation": 0.002,
         "rsi_long_max": 68.0,
         "rsi_short_min": 32.0,
+        "require_pattern_confirmation": False,
+        "require_nn_confirmation": False,
     }
     merged = {**defaults, **cfg}
     if overrides:
@@ -130,6 +132,45 @@ def classify(
 
 # ── provider ──
 
+def apply_pattern_filter(
+    signal: Direction, patterns: list, params: Optional[dict] = None
+) -> Direction:
+    """Optionally require a candlestick pattern to agree with the signal.
+
+    Kept separate from classify() because pattern detection needs the raw
+    OHLC bars, not just the derived indicator values. Both the live provider
+    and the backtester call this so the two stay in lockstep.
+    """
+    p = signal_params(params)
+    if not p.get("require_pattern_confirmation") or signal == Direction.HOLD:
+        return signal
+
+    from app.strategies.candlesticks import summarise
+
+    net = summarise(patterns)["net_score"]
+    if signal == Direction.LONG and net <= 0:
+        return Direction.HOLD
+    if signal == Direction.SHORT and net >= 0:
+        return Direction.HOLD
+    return signal
+
+
+def _nn_score(df: pd.DataFrame, signal: Direction) -> Optional[float]:
+    """P(win) from the learned validator, or None if untrained/HOLD.
+
+    Surfaced to the reasoning agent as evidence even when the hard gate is off,
+    so the LLM can weigh the model's read without it silently vetoing trades.
+    """
+    if signal == Direction.HOLD:
+        return None
+    try:
+        from app.ml.validator import load_validator
+        v = load_validator()
+        return round(v.predict_proba(df, signal), 3) if v else None
+    except Exception:
+        return None
+
+
 def fetch_history(symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
     """Raw OHLCV history. Shared by the live provider and the backtester."""
     import yfinance as yf
@@ -174,8 +215,24 @@ class YFinanceProvider:
         if df is None or df.empty or len(df) < 50:
             raise MarketDataError(f"insufficient data for {symbol}")
 
+        from app.strategies.candlesticks import detect, summarise
+
         ind = compute_indicators(df)
         trend, signal, confidence = classify(ind)
+
+        # Candlestick context is trend-dependent, so detect AFTER classify.
+        patterns = detect(df, trend)
+        summary = summarise(patterns)
+        signal = apply_pattern_filter(signal, patterns)
+
+        # Learned validator: score the (pre-gate) proposal for the LLM to weigh,
+        # then optionally gate on it. Scoring never blocks if no model exists.
+        params = signal_params()
+        nn_score = _nn_score(df, signal)
+        if params.get("require_nn_confirmation"):
+            from app.ml.validator import apply_nn_filter
+            signal = apply_nn_filter(signal, df, params)
+
         return MarketAnalysis(
             symbol=symbol,
             last_price=round(ind["last_price"], 2),
@@ -185,9 +242,14 @@ class YFinanceProvider:
             indicators={
                 "ema_20": round(ind["ema_20"], 2),
                 "ema_50": round(ind["ema_50"], 2),
+                "ema_200": round(ind["ema_200"], 2),
                 "rsi_14": round(ind["rsi_14"], 2),
                 "atr_14": round(ind["atr_14"], 2),
             },
+            patterns=summary["patterns"],
+            pattern_bias=summary["net_bias"],
+            pattern_score=summary["net_score"],
+            nn_score=nn_score,
         )
 
 

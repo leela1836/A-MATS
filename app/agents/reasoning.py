@@ -49,6 +49,17 @@ def reason(
         "indicators": ma.indicators,
         "technical_signal": ma.signal.value,
     }
+    if ma.patterns:
+        payload["candlesticks"] = {
+            "patterns": ma.patterns,
+            "bias": ma.pattern_bias,
+            "score": ma.pattern_score,
+        }
+    if ma.nn_score is not None:
+        payload["model_validation"] = {
+            "win_probability": ma.nn_score,
+            "note": "learned validator trained on backtest outcomes; evidence, not an order",
+        }
     if news is not None:
         payload["news"] = {
             "sentiment_score": news.sentiment_score,

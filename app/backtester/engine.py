@@ -28,7 +28,13 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from app.collectors.market_collector import classify, compute_indicators, fetch_history
+from app.collectors.market_collector import (
+    apply_pattern_filter,
+    classify,
+    compute_indicators,
+    fetch_history,
+)
+from app.strategies.candlesticks import detect
 from app.config import get_config
 from app.models.state import Direction
 
@@ -51,6 +57,8 @@ class BacktestTrade:
     return_pct: float
     exit_reason: str  # "stop" | "target" | "signal_flip" | "end_of_data"
     bars_held: int
+    entry_index: int = -1  # bar position of the fill; lets the ML layer
+    #                        reconstruct the exact no-lookahead decision window.
 
 
 @dataclass
@@ -159,7 +167,17 @@ def run_backtest(
         window = df.iloc[: i + 1]
         try:
             ind = compute_indicators(window)
-            _, signal, _ = classify(ind, signal_overrides)
+            trend, signal, _ = classify(ind, signal_overrides)
+            # Same pattern gate the live provider applies, so backtest and
+            # live cannot silently diverge.
+            if (signal_overrides or {}).get("require_pattern_confirmation"):
+                signal = apply_pattern_filter(
+                    signal, detect(window, trend), signal_overrides
+                )
+            # Learned validator gate — same call the live provider uses.
+            if (signal_overrides or {}).get("require_nn_confirmation"):
+                from app.ml.validator import apply_nn_filter
+                signal = apply_nn_filter(signal, window, signal_overrides)
         except Exception:
             signal = Direction.HOLD
 
@@ -240,4 +258,5 @@ def _record(pos: OpenPosition, date: str, exit_price: float, reason: str, i: int
         exit_price=round(exit_price, 2), qty=pos.qty, pnl=round(pnl, 2),
         return_pct=round((pnl / cost * 100) if cost else 0.0, 3),
         exit_reason=reason, bars_held=i - pos.entry_index,
+        entry_index=pos.entry_index,
     )

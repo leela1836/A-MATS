@@ -32,6 +32,12 @@ class MarketAnalysis(BaseModel):
     signal: Direction
     confidence: float = Field(ge=0.0, le=1.0)
     indicators: dict[str, float] = Field(default_factory=dict)
+    # Candlestick context: detected patterns plus their netted bias.
+    patterns: list[dict[str, Any]] = Field(default_factory=list)
+    pattern_bias: str = "none"
+    pattern_score: float = 0.0
+    # Learned validator's P(win) for the proposed entry (None if untrained).
+    nn_score: Optional[float] = None
 
 
 class NewsArticleRef(BaseModel):
