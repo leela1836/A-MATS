@@ -13,8 +13,10 @@ name: A-MATS market scan
 
 on:
   schedule:
-    - cron: "15 3 * * 1-5"    # pre-market  (Mon-Fri)
-    - cron: "15 10 * * 1-5"   # post-market (Mon-Fri)
+    - cron: "15 3 * * 1-5"    # 08:45 IST — pre-open plan
+    - cron: "0 6 * * 1-5"     # 11:30 IST — MID-SESSION: in NSE hours, so the
+    #                            paper broker actually FILLS orders here
+    - cron: "15 10 * * 1-5"   # 15:45 IST — post-close resolution
   workflow_dispatch:           # manual "Run workflow" button
 
 permissions:
@@ -42,6 +44,7 @@ jobs:
         run: |
           case "${{ github.event.schedule }}" in
             "15 3 * * 1-5")  echo "SCAN_SESSION=pre"  >> "$GITHUB_ENV" ;;
+            "0 6 * * 1-5")   echo "SCAN_SESSION=mid"  >> "$GITHUB_ENV" ;;
             "15 10 * * 1-5") echo "SCAN_SESSION=post" >> "$GITHUB_ENV" ;;
             *)               echo "SCAN_SESSION=manual" >> "$GITHUB_ENV" ;;
           esac

@@ -1,9 +1,13 @@
 # A-MATS — Handoff
 
-**Last updated:** 2026-07-24 · **Branch:** `master` · **Head:** `eb8560a` (+ uncommitted) · **Tests:** 127 passing
+**Last updated:** 2026-07-25 · **Branch:** `master` · **Head:** `7b441e0` · **Tests:** 158 passing
 
-Autonomous multi-agent trading system for the **Indian market (NSE)**. LangGraph
-orchestration, Gemini reasoning, in-app paper trading in INR.
+Autonomous, self-learning multi-agent **paper-trading** system for the Indian
+market (NSE). LangGraph orchestration, Gemini reasoning, in-app INR paper
+trading, a numpy trade-validator that retrains on its own results, a universe
+screener, a persistent journal, and scheduled cloud runs. **Verdict up front:
+it does not beat buy-and-hold** (exhaustively tested — see §1) — run it as an
+autonomous learning/analysis platform, not an alpha engine.
 
 ---
 
@@ -184,6 +188,32 @@ cd frontend && npm run dev        # http://localhost:3000
 
 **Windows gotcha:** prefix scripts with `PYTHONIOENCODING=utf-8` when printing
 model output, or unicode (`→`, `₹`) raises `UnicodeEncodeError` on cp1252.
+
+### Deploy the autonomous agent (no human in the loop)
+The agent runs itself via GitHub Actions (`.github/workflows/scan.yml`) — on
+GitHub's servers, laptop off. Each run: screen the universe → reason (LLM on the
+top picks if enabled, else deterministic) → paper-trade with a 30% drawdown
+survival guard → journal every decision with its features → resolve open trades
+to win/loss → (Friday post) retrain the validator on its OWN closed trades →
+commit journal + model back. It is BUILT but not DEPLOYED until you:
+
+1. Create a GitHub repo and `git push` this code.
+2. **Settings → Actions → General → Workflow permissions → Read and write**
+   (so the run can commit the journal + learned model back).
+3. Done — it runs at **08:45 / 11:30 / 15:45 IST**, Mon–Fri. The **11:30
+   mid-session** run is inside NSE hours, so the paper broker actually FILLS
+   there; pre/post journal + resolve + learn. Trigger once via **Actions → Run
+   workflow** to smoke-test. Deterministic → needs NO secrets, NO cost.
+4. To turn on real LLM reasoning: add repo secret `GOOGLE_API_KEY` and set
+   `SCAN_LLM_TOP` (e.g. `3`) in the workflow — the LLM then reasons on the top N
+   picks per scan, within the ~20/day quota. (News sentiment also uses the key
+   per finalist, so keep `top_n` modest if you enable this.)
+
+Journal/learning are independent of the paper broker: the journal opens/tracks/
+resolves/learns from decisions regardless of market hours; only broker FILLS are
+hours-gated. Escape hatch to fill any time: `scheduling.trading_hours_only:
+false`. Locally you can drive the same loop: `POST /screen` / `POST /learn`, or
+`python -m app.journal.scan` (env `SCAN_MODE`, `SCAN_LLM_TOP`, `SCAN_SESSION`).
 
 ### API surface
 | Endpoint | Purpose |
