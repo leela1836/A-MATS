@@ -1,6 +1,7 @@
 # A-MATS — Handoff
 
-**Last updated:** 2026-07-25 · **Branch:** `master` · **Head:** `7b441e0` · **Tests:** 158 passing
+**Last updated:** 2026-07-25 · **Branch:** `master` · **Head:** `114b704` · **Tests:** 162 passing
+· **DEPLOYED & running** on GitHub (`github.com/leela1836/A-MATS`)
 
 Autonomous, self-learning multi-agent **paper-trading** system for the Indian
 market (NSE). LangGraph orchestration, Gemini reasoning, in-app INR paper
@@ -189,31 +190,33 @@ cd frontend && npm run dev        # http://localhost:3000
 **Windows gotcha:** prefix scripts with `PYTHONIOENCODING=utf-8` when printing
 model output, or unicode (`→`, `₹`) raises `UnicodeEncodeError` on cp1252.
 
-### Deploy the autonomous agent (no human in the loop)
-The agent runs itself via GitHub Actions (`.github/workflows/scan.yml`) — on
-GitHub's servers, laptop off. Each run: screen the universe → reason (LLM on the
-top picks if enabled, else deterministic) → paper-trade with a 30% drawdown
-survival guard → journal every decision with its features → resolve open trades
-to win/loss → (Friday post) retrain the validator on its OWN closed trades →
-commit journal + model back. It is BUILT but not DEPLOYED until you:
+### The autonomous agent — DEPLOYED and running
+Runs itself via GitHub Actions (`.github/workflows/scan.yml`) on GitHub's
+servers, laptop off, at **08:45 / 11:30 / 15:45 IST**, Mon–Fri. Each run: screen
+the universe → reason (LLM on the top `SCAN_LLM_TOP` picks, deterministic for the
+rest) → paper-trade with a 30% drawdown survival guard → journal every decision
+with its features → resolve open trades to win/loss → (Friday post) retrain the
+validator on its OWN closed trades → commit journal + model back to the repo.
+Confirmed working: a live cloud run produced **20 journaled decisions** on real
+Upstox data.
 
-1. Create a GitHub repo and `git push` this code.
-2. **Settings → Actions → General → Workflow permissions → Read and write**
-   (so the run can commit the journal + learned model back).
-3. Done — it runs at **08:45 / 11:30 / 15:45 IST**, Mon–Fri. The **11:30
-   mid-session** run is inside NSE hours, so the paper broker actually FILLS
-   there; pre/post journal + resolve + learn. Trigger once via **Actions → Run
-   workflow** to smoke-test. Deterministic → needs NO secrets, NO cost.
-4. To turn on real LLM reasoning: add repo secret `GOOGLE_API_KEY` and set
-   `SCAN_LLM_TOP` (e.g. `3`) in the workflow — the LLM then reasons on the top N
-   picks per scan, within the ~20/day quota. (News sentiment also uses the key
-   per finalist, so keep `top_n` modest if you enable this.)
+**Repo secrets configured** (Settings → Secrets and variables → Actions):
+- `UPSTOX_ACCESS_TOKEN` — market data that works from the cloud (see landmine).
+- `GOOGLE_API_KEY` — LLM reasoning (Flash-Lite; see landmine). `SCAN_LLM_TOP=5`.
+- **Read-and-write workflow permissions** are ON (so it can commit back).
 
-Journal/learning are independent of the paper broker: the journal opens/tracks/
-resolves/learns from decisions regardless of market hours; only broker FILLS are
-hours-gated. Escape hatch to fill any time: `scheduling.trading_hours_only:
-false`. Locally you can drive the same loop: `POST /screen` / `POST /learn`, or
-`python -m app.journal.scan` (env `SCAN_MODE`, `SCAN_LLM_TOP`, `SCAN_SESSION`).
+**Run times & fills:** the **11:30 mid-session** run is inside NSE hours, so the
+paper broker actually FILLS there; pre/post journal + resolve + learn. The
+journal opens/tracks/resolves/learns *regardless* of market hours (only broker
+FILLS are hours-gated; escape hatch `scheduling.trading_hours_only: false`).
+
+**⚠️ Token renewals:** the Upstox Analytics Token expires **~1 year** from
+generation (≈ Jul 2027) — regenerate at `account.upstox.com/developer/apps` →
+Analytics, and update `.env` + the GitHub secret. Gemini keys don't expire but
+watch the daily quota.
+
+**Drive it locally:** `POST /screen` / `POST /learn`, or `python -m
+app.journal.scan` (env `SCAN_MODE`, `SCAN_LLM_TOP`, `SCAN_SESSION`).
 
 ### API surface
 | Endpoint | Purpose |
@@ -222,8 +225,13 @@ false`. Locally you can drive the same loop: `POST /screen` / `POST /learn`, or
 | `GET /config/{agent\|risk\|market\|trading\|news}` | config introspection |
 | `POST /run/{symbol}` | one full trading cycle (e.g. `RELIANCE.NS`) |
 | `POST /backtest/{symbol}?period=5y` | historical replay + metrics |
+| `GET /candles/{symbol}` | OHLC + EMAs + pattern markers + S/R (chart data) |
+| `POST /scan` · `POST /screen?top_n&llm_top` | autonomous watchlist / universe scan |
+| `POST /learn` | retrain the validator on the journal's closed trades |
+| `GET /journal/decisions` · `GET /journal/equity` | the agent's track record |
 | `GET /portfolio` · `GET /trades` · `POST /portfolio/reset` | paper account |
 | `GET /market/status` | NSE session state (IST) |
+| (port 8100) NN-health dashboard: `GET /` · `/api/model` · `/api/predict` | model viz |
 
 ---
 
@@ -245,10 +253,16 @@ conflict writing shared keys.
 ### Layout
 ```
 app/
-  collectors/market_collector.py   yfinance + EMA/RSI/ATR + classify()
+  collectors/market_collector.py   fetch_history (Upstox|yfinance) + disk cache + EMA/RSI/ATR + classify()
+  collectors/upstox_collector.py   Upstox Analytics-Token price source (works from cloud)
   collectors/news_collector.py     RSS w/ DOMAIN ALLOWLIST
   collectors/nse_official.py       holidays, ASM, filings, market state
   strategies/candlesticks.py       trend-aware pattern detection + net bias
+  strategies/support_resistance.py swing-pivot S/R zones
+  strategies/weinstein.py          Stage-2/4 breakout strategy (backtest-only)
+  journal/store.py|scan.py|screener.py   SQLite journal + autonomous screen-scan + universe screener
+  ml/learn.py                      retrain the validator on the agent's own closed trades
+  nn_dashboard/server.py           standalone NN-health dashboard (port 8100)
   ml/mlp.py                        pure-numpy MLP + scaler + AUC + save/load
   ml/features.py                   shared extractor: technical + candle + volume
   ml/dataset.py                    backtest trades -> labelled (features, win)
@@ -272,24 +286,42 @@ frontend/ Next 16 dashboard
 
 ## 4. Landmines — read before changing anything
 
-**Secrets.** `.env` holds real keys and is gitignored. `.env.example` must stay
-empty — keys were once pasted into it, which would have committed them. Always
-run before committing:
+**Secrets.** `.env` (gitignored, never committed — verified clean history) holds
+`GOOGLE_API_KEY` and `UPSTOX_ACCESS_TOKEN`; `.env.example` is the empty template.
+For the cloud agent the same two live as **GitHub Actions secrets**
+(`UPSTOX_ACCESS_TOKEN`, `GOOGLE_API_KEY`). Always scan the staged diff before
+committing (Upstox tokens are JWTs — `eyJ…`):
 ```bash
-git diff --cached | grep -E "sk-proj-[A-Za-z0-9]{20}|AQ\.Ab8"
+git diff --cached | grep -E "sk-proj-[A-Za-z0-9]{20}|AQ\.Ab8|eyJ[A-Za-z0-9_-]{20}"
 ```
-⚠️ The OpenAI and Google keys were pasted into a chat transcript. **Rotate both.**
+⚠️ The OpenAI/Google keys were once pasted into a chat transcript — **rotate**.
 
-**LLM quota.** Free Google AI Studio keys allow **~20 requests/DAY per model**.
-- `gemini-2.5-flash` — the only model with working quota
-- `gemini-3.5-flash` — exists, quota exhausted (20/20)
-- `gemini-2.5-flash-lite` — 404, retired for new keys
-- Mitigations already in place: **model fallback chain** (each model has its own
-  quota, so chaining ≈ triples the budget) and **news sentiment cached per
-  symbol** (repeat run = 1 request instead of 2).
-- OpenAI key authenticates but the account has **no credits** (429).
-- NVIDIA NIM is pre-wired as an OpenAI-compatible provider — set
-  `llm.provider: nvidia` + `NVIDIA_API_KEY` when that key arrives.
+**LLM quota — USE THE FLASH-LITE MODELS.** Free AI Studio quota is **per model**:
+- **Regular Flash** (`gemini-2.5-flash`, `gemini-3.x-flash`) — only **20/DAY**.
+  One universe scan (news + reasoning per finalist) blows this instantly; that
+  is what rate-limited the account.
+- **Flash-LITE** (`gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`) — **500/DAY**
+  (25×). The config now defaults to `gemini-3.5-flash-lite` with lite fallbacks;
+  ~75 calls/day at `SCAN_LLM_TOP=5` × 3 scans sits well under 500, free.
+- `gemini-2.5-flash-lite` is retired (404) — use the 3.x lites.
+- ⚠️ GOTCHA: the 3.x Lite models **reject `thinkingConfig.thinkingBudget: 0`**
+  (HTTP 400) — must be `-1` or > 0, or omitted. `llm/client.py` omits it.
+- Mitigations: **model fallback chain** (each model its own quota) + **news
+  sentiment cached per symbol**. `SCAN_LLM_TOP` gates *reasoning* to the top N
+  picks (news still runs per finalist, so the Lite 500/day budget matters).
+- OpenAI key has no credits (429). NVIDIA NIM is pre-wired (`llm.provider:
+  nvidia` + `NVIDIA_API_KEY`) if that key arrives.
+
+**Market data — Yahoo is BLOCKED on cloud IPs; use Upstox for the cloud agent.**
+`fetch_history` prefers **Upstox** when `UPSTOX_ACCESS_TOKEN` is set (works from
+GitHub's IPs), else yfinance (fine from a home IP, 0 data on datacenter IPs — the
+original "blind cloud agent" bug). The token is an Upstox **Analytics Token**
+(1-yr, read-only, no static IP for market data). Upstox uses ISIN instrument keys
+(`NSE_EQ|INE002A01018`), mapped from the cached NSE instruments file; and its WAF
+403s the default python-urllib UA, so a browser `User-Agent` is required.
+`fetch_history` also disk-caches OHLCV to `data/cache/` (D drive) with a stale
+fallback. NOTE: the market *provider*'s `_fetch` used to call yfinance directly
+(bypassing this) — fixed to route through `fetch_history`.
 
 **Tests must never spend tokens.** `tests/conftest.py` strips *every* provider
 key and injects fake market/news/NSE providers. When adding a provider, add its
