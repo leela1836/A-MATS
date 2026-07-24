@@ -9,8 +9,28 @@ orchestration, Gemini reasoning, in-app paper trading in INR.
 
 ## 1. The one thing to know first
 
-**The strategy is not profitable.** Infrastructure is solid and well-tested;
-the *signal* is weak. Measured over 5 years on six NSE large-caps:
+**The strategy is not profitable — and the decisive test is that NOTHING we
+built beats BUY-AND-HOLD.** Fair weekly test, same 5y window, 48-symbol
+universe, benchmarked properly:
+
+| arm | mean return | mean max DD | beats buy&hold |
+|---|---|---|---|
+| **buy & hold** | **+94.8%** | 33.9% | — |
+| baseline (weekly) | −0.0% | 4.2% | 5/48 |
+| Weinstein (weekly) | +0.2% | 3.2% | 6/48 |
+
+Every "positive" result along the way (6-symbol Weinstein +0.36%, weekly
+`max`-history +19.9%) evaporated under a fair benchmark. On a like-for-like 5y
+window the active strategies return ≈0% while just holding returned +94.8%.
+Their only virtue is low drawdown — because they sit in cash. **Do not re-chase
+timing signals on NSE large-caps; buy-and-hold beats them.** The only honest
+avenues left are genuinely different: cross-sectional/relative-strength
+selection (pick the strongest names, not time the market), a universe with real
+dispersion (mid/small-caps, with survivorship controls), shorting in bear
+regimes, or accepting the agent's job is analysis/education, not alpha.
+
+Historical note — infrastructure is solid and well-tested; the *signal* is weak.
+Early daily measurement over 5 years on six NSE large-caps:
 
 | | mean return / symbol | trades |
 |---|---|---|
