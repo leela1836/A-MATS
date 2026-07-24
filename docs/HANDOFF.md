@@ -174,7 +174,7 @@ universe sweeps stop flaking.
 ## 2. Run it
 
 ```bash
-cd d:/Trade
+cd d:/A-MATS   # (repo folder; was d:/Trade before the rename)
 
 # backend  (Windows: always use the venv python explicitly)
 ./.venv/Scripts/python.exe -m uvicorn app.main:app --port 8000

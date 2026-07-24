@@ -348,7 +348,7 @@ services:
 ### 9.2 Directory Structure
 
 ```
-d:\Trade\
+d:\A-MATS\
 ├── app/                    # Python backend
 │   ├── agents/            # Agent implementations
 │   ├── engines/           # Engine implementations
