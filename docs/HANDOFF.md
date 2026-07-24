@@ -25,9 +25,16 @@ window the active strategies return ≈0% while just holding returned +94.8%.
 Their only virtue is low drawdown — because they sit in cash. **Do not re-chase
 timing signals on NSE large-caps; buy-and-hold beats them.** The only honest
 avenues left are genuinely different: cross-sectional/relative-strength
-selection (pick the strongest names, not time the market), a universe with real
-dispersion (mid/small-caps, with survivorship controls), shorting in bear
+selection (pick the strongest names, not time the market), shorting in bear
 regimes, or accepting the agent's job is analysis/education, not alpha.
+
+**Mid-cap dispersion hypothesis — ALSO tested, ALSO failed.** Fair weekly test,
+5y, 45 mid-caps vs buy-and-hold: B&H +156.6% (dispersion −44%..+614%), baseline
++1.1%, weinstein +2.4% — each beats B&H on only 6/45. The dispersion is real but
+the strategies don't capture it; buy-and-hold dominates even harder than on
+large-caps. Timing/screening adds no value on Indian equities, large OR mid cap.
+The remaining honest path is cross-sectional selection or reframing as
+analysis/education — NOT more timing variants.
 
 Historical note — infrastructure is solid and well-tested; the *signal* is weak.
 Early daily measurement over 5 years on six NSE large-caps:

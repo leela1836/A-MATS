@@ -22,6 +22,7 @@ import { PortfolioPanel } from "./PortfolioPanel";
 import { PipelineFlow, type Stage } from "./PipelineFlow";
 import { SignalPanel } from "./SignalPanel";
 import { TradePlan } from "./TradePlan";
+import { TrackRecord } from "./TrackRecord";
 import { CandleChart } from "./charts/CandleChart";
 import { EquityChart } from "./charts/EquityChart";
 
@@ -299,6 +300,11 @@ export function Dashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* autonomous track record + learning */}
+      <div className="mb-4">
+        <TrackRecord />
       </div>
 
       {/* trace footer */}

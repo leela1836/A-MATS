@@ -1,0 +1,50 @@
+# Mid-cap NSE universe — tests the "higher dispersion" hypothesis: where names
+# actually diverge (some 5x, some halve), selection/timing can add value that it
+# can't on efficient large-caps. Curated liquid mid-caps; paste the NIFTY
+# Midcap 100 / Smallcap 250 constituents (with .NS) to widen it. Bad tickers
+# are skipped gracefully.
+TATAPOWER.NS
+TATACHEM.NS
+FEDERALBNK.NS
+BANKBARODA.NS
+CANBK.NS
+PNB.NS
+IDFCFIRSTB.NS
+ASHOKLEY.NS
+TVSMOTOR.NS
+BALKRISIND.NS
+MRF.NS
+APOLLOTYRE.NS
+ESCORTS.NS
+BHEL.NS
+SAIL.NS
+NMDC.NS
+HINDPETRO.NS
+PETRONET.NS
+IGL.NS
+PAGEIND.NS
+TRENT.NS
+VOLTAS.NS
+HAVELLS.NS
+POLYCAB.NS
+CUMMINSIND.NS
+MPHASIS.NS
+PERSISTENT.NS
+COFORGE.NS
+LICHSGFIN.NS
+MUTHOOTFIN.NS
+CHOLAFIN.NS
+PIIND.NS
+DEEPAKNTR.NS
+INDHOTEL.NS
+JUBLFOOD.NS
+GODREJPROP.NS
+DLF.NS
+OBEROIRLTY.NS
+LUPIN.NS
+AUROPHARMA.NS
+BIOCON.NS
+TORNTPHARM.NS
+ALKEM.NS
+GLENMARK.NS
+LAURUSLABS.NS

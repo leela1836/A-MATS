@@ -264,6 +264,57 @@ export async function getBacktest(symbol: string, period = "2y"): Promise<Backte
   return res.json();
 }
 
+export interface JournalStats {
+  scans: number;
+  decisions: number;
+  directional_calls: number;
+  open: number;
+  closed_resolved: number;
+  wins: number;
+  win_rate_pct: number | null;
+}
+
+export interface JournalDecision {
+  id: number;
+  ts: string;
+  symbol: string;
+  direction: string;
+  entry_price: number | null;
+  stop_loss: number | null;
+  take_profit: number | null;
+  nn_score: number | null;
+  screen_score: number | null;
+  screen_rank: number | null;
+  status: string;
+  outcome: string | null;
+  pnl_pct: number | null;
+}
+
+export interface EquityPoint {
+  ts: string;
+  equity: number;
+  return_percent: number | null;
+  open_positions: number;
+}
+
+export async function getJournalEquity(): Promise<{ equity_curve: EquityPoint[]; stats: JournalStats }> {
+  const res = await fetch(`${API_BASE}/journal/equity`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Journal equity fetch failed (${res.status})`);
+  return res.json();
+}
+
+export async function getJournalDecisions(limit = 30): Promise<JournalDecision[]> {
+  const res = await fetch(`${API_BASE}/journal/decisions?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Journal decisions fetch failed (${res.status})`);
+  return (await res.json()).decisions;
+}
+
+export async function triggerLearn(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE}/learn`, { method: "POST" });
+  if (!res.ok) throw new Error(`Learn failed (${res.status})`);
+  return res.json();
+}
+
 export async function checkHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`, { cache: "no-store" });
