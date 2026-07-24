@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NN Health Dashboard</title>
+<style>
+  :root {
+    --background: #0b0e14;
+    --surface: #131824;
+    --surface-2: #1a2130;
+    --border: #232c3d;
+    --foreground: #e6edf3;
+    --muted: #8b98ab;
+    --accent: #4f9dff;
+    --pass: #3fb950;
+    --halt: #f0883e;
+    --fail: #f85149;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--sans);
+    overflow-x: hidden;
+  }
+  .page { max-width: 1360px; margin: 0 auto; padding: 22px 22px 60px; }
+
+  .topbar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .topbar h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.01em; }
+  .subtitle { margin: 0; color: var(--muted); font-size: 13px; }
+  .subtitle span { color: var(--accent); font-family: var(--mono); }
+  .badge {
+    font-family: var(--mono); font-size: 12px; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); white-space: nowrap;
+  }
+  .badge.ok { color: var(--pass); border-color: color-mix(in srgb, var(--pass) 40%, var(--border)); }
+  .badge.bad { color: var(--fail); border-color: color-mix(in srgb, var(--fail) 40%, var(--border)); }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; margin-bottom: 20px;
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .panel h3 { margin: 18px 0 8px; font-size: 12.5px; font-weight: 600; color: var(--foreground); }
+  .panel h3:first-of-type { margin-top: 2px; }
+  .hint { margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .muted { color: var(--muted); font-weight: 400; }
+
+  .tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 10px; margin-bottom: 8px;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 14px;
+  }
+  .tile .t-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .tile .t-value { font-family: var(--mono); font-size: 20px; margin-top: 4px; font-weight: 600; }
+  .tile .t-sub { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+  .tile .t-value.up { color: var(--pass); }
+  .caption {
+    font-size: 11.5px; color: var(--muted); margin: 4px 2px 20px; line-height: 1.6;
+    border-left: 2px solid var(--border); padding-left: 10px;
+  }
+
+  .svg-scroll { overflow-x: auto; overflow-y: hidden; border-radius: 10px; }
+  .svg-scroll svg { display: block; }
+  .svg-scroll::-webkit-scrollbar { height: 8px; }
+  .svg-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .legend-row { display: flex; gap: 18px; margin-top: 10px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+  .sw { display: inline-block; width: 18px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .sw-pos { background: var(--accent); }
+  .sw-neg { background: var(--fail); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1.15fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .mode-block { border-top: 1px solid var(--border); padding-top: 10px; }
+  .mode-block:first-of-type { border-top: none; padding-top: 0; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+
+  input[type="text"] {
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--foreground);
+    border-radius: 8px; padding: 8px 10px; font-family: var(--mono); font-size: 13px;
+    flex: 1 1 160px; min-width: 140px;
+  }
+  input[type="text"]:focus, .btn:focus, .pill:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .pillgroup { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .pill {
+    background: var(--surface-2); color: var(--muted); border: none; padding: 8px 14px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: var(--sans);
+  }
+  .pill.active { background: var(--accent); color: #061224; }
+  .pill:not(.active):hover { color: var(--foreground); }
+
+  .btn {
+    background: var(--accent); color: #061224; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .sliders {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 8px 16px; margin-top: 4px;
+  }
+  .slide-item { display: flex; flex-direction: column; gap: 2px; }
+  .slide-item label {
+    font-size: 11px; color: var(--muted); display: flex; justify-content: space-between;
+    font-family: var(--mono);
+  }
+  .slide-item label b { color: var(--foreground); font-weight: 600; }
+  .slide-item input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  .error {
+    background: color-mix(in srgb, var(--fail) 14%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--fail) 45%, var(--border));
+    color: var(--fail); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; margin: 10px 0;
+  }
+  .hidden { display: none !important; }
+
+  .result {
+    display: grid; grid-template-columns: 240px 1fr; gap: 18px; align-items: center;
+    border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px;
+  }
+  @media (max-width: 560px) { .result { grid-template-columns: 1fr; } }
+  .gauge-wrap { position: relative; text-align: center; }
+  .gauge-value {
+    position: absolute; left: 0; right: 0; bottom: 8px; font-family: var(--mono);
+    font-size: 26px; font-weight: 700;
+  }
+  .verdict {
+    display: inline-block; font-size: 15px; font-weight: 800; letter-spacing: 0.06em;
+    padding: 7px 16px; border-radius: 8px; background: var(--surface-2); color: var(--muted);
+  }
+  .verdict.take { background: color-mix(in srgb, var(--pass) 22%, var(--surface-2)); color: var(--pass); }
+  .verdict.skip { background: color-mix(in srgb, var(--fail) 22%, var(--surface-2)); color: var(--fail); }
+  .thresh-line { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .raw-details { margin-top: 10px; }
+  .raw-details summary { font-size: 11.5px; color: var(--muted); cursor: pointer; }
+  .raw-details pre.mono {
+    font-family: var(--mono); font-size: 11px; color: var(--foreground); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 8px;
+    max-height: 220px; overflow: auto; white-space: pre-wrap;
+  }
+
+  .foot { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .mono { font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="topbar">
+    <div>
+      <h1>Neural-Network Health Dashboard</h1>
+      <p class="subtitle">Visualizing the pure-numpy MLP trade validator &middot; <span id="archLabel">loading…</span></p>
+    </div>
+    <div class="badge" id="modelBadge">loading…</div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+  <p class="caption" id="caption"></p>
+
+  <div class="panel">
+    <h2>Network Graph</h2>
+    <p class="hint">13 input features &rarr; 16 hidden units (ReLU) &rarr; 1 output (sigmoid P(win)). Edge width &amp; opacity scale with |weight|; color is sign. After a prediction, node fill shows that feature/unit's activation.</p>
+    <div class="svg-scroll"><svg id="netSvg"></svg></div>
+    <div class="legend-row">
+      <span><i class="sw sw-pos"></i>positive weight</span>
+      <span><i class="sw sw-neg"></i>negative weight</span>
+      <span class="muted">thin / faint = small magnitude &middot; scroll horizontally if it overflows</span>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Feature Importance</h2>
+      <p class="hint">Sum of |first-layer weights| per input &mdash; a rough proxy for influence, not a causal measure.</p>
+      <div class="svg-scroll"><svg id="impSvg"></svg></div>
+    </div>
+
+    <div class="panel">
+      <h2>Try a Prediction</h2>
+
+      <div class="mode-block">
+        <h3>By symbol <span class="muted">(live &middot; hits yfinance)</span></h3>
+        <div class="row">
+          <input id="symbolInput" type="text" placeholder="RELIANCE.NS" value="RELIANCE.NS" />
+          <div class="pillgroup" id="symDirGroup">
+            <button class="pill active" data-dir="long">Long</button>
+            <button class="pill" data-dir="short">Short</button>
+          </div>
+          <button class="btn" id="symPredictBtn">Predict</button>
+        </div>
+      </div>
+
+      <div class="mode-block">
+        <h3>Manual features <span class="muted">(offline &middot; no network)</span></h3>
+        <div class="row">
+          <div class="pillgroup" id="manDirGroup">
+            <button class="pill active" data-dir="long">Long</button>
+            <button class="pill" data-dir="short">Short</button>
+          </div>
+          <button class="btn" id="manPredictBtn">Predict from sliders</button>
+        </div>
+        <div class="sliders" id="sliders"></div>
+      </div>
+
+      <div id="errorBox" class="error hidden"></div>
+
+      <div class="result">
+        <div class="gauge-wrap">
+          <svg id="gaugeSvg" viewBox="0 0 240 140"></svg>
+          <div class="gauge-value" id="gaugeValue">&mdash;</div>
+        </div>
+        <div class="verdict-wrap">
+          <div class="verdict" id="verdictBadge">NO PREDICTION YET</div>
+          <div class="thresh-line" id="threshLine">Run a prediction to see P(win) vs. the gate threshold.</div>
+          <details class="raw-details">
+            <summary>raw feature values / scaled inputs</summary>
+            <pre id="rawFeatures" class="mono">—</pre>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">A-MATS NN Dashboard &middot; standalone service on :8100 &middot; reads app/ml/models/trade_validator.json &middot; zero LLM calls</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var COLOR = {
+    accent: "#4f9dff", pass: "#3fb950", fail: "#f85149", amber: "#f0883e",
+    muted: "#8b98ab", border: "#232c3d", surface2: "#1a2130", fg: "#e6edf3"
+  };
+
+  // Sensible manual-mode ranges per feature. Most engineered ratios cluster
+  // near zero; a few (rule_confidence, dir_long) are bounded [0,1].
+  var FEATURE_RANGES = {
+    dir_long:             { min: 0,    max: 1,   step: 1,    def: 1 },
+    rsi_dist:             { min: -1,   max: 1,   step: 0.01, def: 0 },
+    ema_sep:              { min: -0.2, max: 0.2, step: 0.001, def: 0 },
+    price_vs_ema20:       { min: -0.2, max: 0.2, step: 0.001, def: 0 },
+    price_vs_ema50:       { min: -0.3, max: 0.3, step: 0.001, def: 0 },
+    price_vs_ema200:      { min: -0.5, max: 0.5, step: 0.001, def: 0 },
+    atr_pct:              { min: 0,    max: 0.1, step: 0.001, def: 0.02 },
+    rule_confidence:      { min: 0,    max: 1,   step: 0.01, def: 0.5 },
+    candle_net_score:     { min: -3,   max: 3,   step: 0.1,  def: 0 },
+    vol_surge:            { min: -1,   max: 5,   step: 0.05, def: 0 },
+    turnover_spike:       { min: -1,   max: 5,   step: 0.05, def: 0 },
+    vol_trend_ratio:      { min: -1,   max: 3,   step: 0.05, def: 0 },
+    up_down_vol_pressure: { min: -1,   max: 1,   step: 0.01, def: 0 }
+  };
+
+  var state = { model: null, weights: null, featureNames: [], nodeEls: null };
+
+  function $(id) { return document.getElementById(id); }
+  function fmt(n, d) { return (typeof n === "number" && isFinite(n)) ? n.toFixed(d === undefined ? 3 : d) : "—"; }
+  function pct(n, d) { return (typeof n === "number" && isFinite(n)) ? (n * 100).toFixed(d === undefined ? 1 : d) + "%" : "—"; }
+  function svgEl(tag, attrs) {
+    var el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  // ── health tiles ──
+  function renderTiles(model) {
+    var tiles = $("tiles"), cap = $("caption");
+    tiles.innerHTML = "";
+    if (!model || !model.available) {
+      tiles.innerHTML = '<div class="tile"><div class="t-label">Model</div><div class="t-value" style="color:var(--fail)">not trained</div></div>';
+      cap.textContent = "No model file found at app/ml/models/trade_validator.json — train one first (app/ml/train.py).";
+      return;
+    }
+    var m = model;
+    function tile(label, value, sub, cls) {
+      var d = document.createElement("div");
+      d.className = "tile";
+      d.innerHTML = '<div class="t-label">' + label + '</div>' +
+        '<div class="t-value ' + (cls || "") + '">' + value + '</div>' +
+        (sub ? '<div class="t-sub">' + sub + '</div>' : "");
+      return d;
+    }
+    tiles.appendChild(tile("OOS AUC", fmt(m.oos_auc, 3), "vs. 0.5 coin flip"));
+    tiles.appendChild(tile("Win rate (base &rarr; gated)",
+      pct(m.oos_base_win_rate, 1) + " → " + pct(m.oos_gated_win_rate, 1),
+      m.oos_gated_win_rate > m.oos_base_win_rate ? "gate helps" : "gate hurts",
+      m.oos_gated_win_rate > m.oos_base_win_rate ? "up" : ""));
+    tiles.appendChild(tile("Coverage", pct(m.oos_coverage, 1), "trades passed by gate"));
+    tiles.appendChild(tile("Logistic baseline AUC", fmt(m.logistic_auc, 3), "linear-model honesty check"));
+    tiles.appendChild(tile("Trades (train set)", m.trades != null ? m.trades : "—", (m.symbols || []).length + " symbols &middot; " + (m.period || "—")));
+    tiles.appendChild(tile("Gate threshold", fmt(m.threshold, 3), "P(win) cutoff"));
+
+    cap.innerHTML = "Out-of-sample, temporal split (train on older trades, test on the newest 30%). " +
+      "Sample is small &mdash; " + (m.trades || "?") + " trades across " + (m.symbols || []).join(", ") +
+      " (" + (m.period || "?") + ") &mdash; so read these numbers as directional, not definitive. " +
+      "See docs/HANDOFF.md for the full portfolio-level A/B result.";
+  }
+
+  // ── network graph ──
+  function renderNetwork(weights) {
+    var svg = $("netSvg");
+    svg.innerHTML = "";
+    if (!weights || !weights.available) {
+      svg.setAttribute("width", 400); svg.setAttribute("height", 60);
+      svg.appendChild(svgEl("text", { x: 10, y: 30, fill: COLOR.muted, "font-size": 13 })).textContent = "No model loaded.";
+      return;
+    }
+    var featureNames = weights.feature_names;
+    var W0 = weights.W[0], W1 = weights.W[1]; // (13x16), (16x1)
+    var nIn = W0.length, nHid = W0[0].length, nOut = W1[0].length;
+
+    var labelW = 168, colGap = 300, r = 7, gap = 34, marginY = 26, marginX = 40;
+    var maxCount = Math.max(nIn, nHid, nOut);
+    var height = marginY * 2 + (maxCount - 1) * gap;
+    var x0 = labelW + marginX, x1 = x0 + colGap, x2 = x1 + colGap;
+    var width = x2 + 90;
+
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+
+    function colY(count) {
+      var span = (maxCount - 1) * gap;
+      var used = (count - 1) * gap;
+      var start = marginY + (span - used) / 2;
+      var ys = [];
+      for (var i = 0; i < count; i++) ys.push(start + i * gap);
+      return ys;
+    }
+    var yIn = colY(nIn), yHid = colY(nHid), yOut = colY(nOut);
+
+    var edgesLayer = svgEl("g", {});
+    var nodesLayer = svgEl("g", {});
+    svg.appendChild(edgesLayer);
+    svg.appendChild(nodesLayer);
+
+    function maxAbs(mat) {
+      var m = 1e-9;
+      for (var i = 0; i < mat.length; i++) for (var j = 0; j < mat[i].length; j++) m = Math.max(m, Math.abs(mat[i][j]));
+      return m;
+    }
+    var maxW0 = maxAbs(W0), maxW1 = maxAbs(W1);
+
+    function drawEdge(xa, ya, xb, yb, w, maxw, minShow) {
+      var a = Math.abs(w) / maxw; // 0..1
+      if (a < minShow) return; // drop near-zero weights entirely — declutters instead of just fading
+      var opacity = clamp(0.12 + 0.75 * Math.pow(a, 0.7), 0.12, 0.88);
+      var width_ = clamp(0.5 + 3.3 * a, 0.5, 3.8);
+      var color = w >= 0 ? COLOR.accent : COLOR.fail;
+      var line = svgEl("line", {
+        x1: xa, y1: ya, x2: xb, y2: yb,
+        stroke: color, "stroke-width": width_, opacity: opacity,
+        "stroke-linecap": "round"
+      });
+      edgesLayer.appendChild(line);
+    }
+
+    for (var i = 0; i < nIn; i++) {
+      for (var j = 0; j < nHid; j++) drawEdge(x0, yIn[i], x1, yHid[j], W0[i][j], maxW0, 0.38);
+    }
+    for (var j2 = 0; j2 < nHid; j2++) {
+      for (var k = 0; k < nOut; k++) drawEdge(x1, yHid[j2], x2, yOut[k], W1[j2][k], maxW1, 0.0);
+    }
+
+    var inputNodes = [], hiddenNodes = [], outputNodes = [];
+
+    for (i = 0; i < nIn; i++) {
+      var lbl = svgEl("text", {
+        x: x0 - r - 10, y: yIn[i] + 4, fill: COLOR.fg, "font-size": 10.5,
+        "text-anchor": "end", "font-family": "ui-monospace,SFMono-Regular,Menlo,monospace"
+      });
+      lbl.textContent = featureNames[i];
+      nodesLayer.appendChild(lbl);
+      var c = svgEl("circle", { cx: x0, cy: yIn[i], r: r, fill: COLOR.surface2, stroke: COLOR.border, "stroke-width": 1.3 });
+      nodesLayer.appendChild(c);
+      inputNodes.push(c);
+    }
+
+    for (j2 = 0; j2 < nHid; j2++) {
+      var c2 = svgEl("circle", { cx: x1, cy: yHid[j2], r: r - 1, fill: COLOR.surface2, stroke: COLOR.border, "stroke-width": 1.2 });
+      nodesLayer.appendChild(c2);
+      hiddenNodes.push(c2);
+    }
+    var hidCapLbl = svgEl("text", { x: x1, y: marginY - 10, fill: COLOR.muted, "font-size": 10.5, "text-anchor": "middle" });
+    hidCapLbl.textContent = "hidden (ReLU, x" + nHid + ")";
+    nodesLayer.appendChild(hidCapLbl);
+    var inCapLbl = svgEl("text", { x: x0, y: marginY - 10, fill: COLOR.muted, "font-size": 10.5, "text-anchor": "middle" });
+    inCapLbl.textContent = "input (x" + nIn + ")";
+    nodesLayer.appendChild(inCapLbl);
+
+    for (k = 0; k < nOut; k++) {
+      var c3 = svgEl("circle", { cx: x2, cy: yOut[k], r: r + 3, fill: COLOR.surface2, stroke: COLOR.border, "stroke-width": 1.5 });
+      nodesLayer.appendChild(c3);
+      outputNodes.push(c3);
+      var olbl = svgEl("text", { x: x2 + r + 12, y: yOut[k] + 4, fill: COLOR.fg, "font-size": 11.5, "font-weight": 700 });
+      olbl.textContent = "P(win)";
+      nodesLayer.appendChild(olbl);
+    }
+
+    state.nodeEls = { input: inputNodes, hidden: hiddenNodes, output: outputNodes };
+    state.featureNames = featureNames;
+  }
+
+  function tintDiverging(el, v, cap) {
+    // v can be any sign; cap controls saturation ramp-up (tanh-ish).
+    var a = clamp(Math.abs(v) / cap, 0, 1);
+    var color = v >= 0 ? COLOR.accent : COLOR.fail;
+    el.setAttribute("fill", color);
+    el.setAttribute("fill-opacity", (0.18 + 0.72 * a).toFixed(2));
+    el.setAttribute("stroke", color);
+  }
+  function tintSequential(el, v, cap) {
+    var a = clamp(v / cap, 0, 1);
+    el.setAttribute("fill", COLOR.accent);
+    el.setAttribute("fill-opacity", (0.12 + 0.78 * a).toFixed(2));
+    el.setAttribute("stroke", COLOR.accent);
+  }
+
+  function updateActivations(result) {
+    if (!state.nodeEls) return;
+    var names = state.featureNames;
+    var scaled = result.scaled_inputs || {};
+    for (var i = 0; i < state.nodeEls.input.length; i++) {
+      var v = scaled[names[i]];
+      if (typeof v === "number") tintDiverging(state.nodeEls.input[i], v, 2.5);
+    }
+    var hid = result.hidden_activations || [];
+    var maxHid = 1e-9;
+    for (i = 0; i < hid.length; i++) maxHid = Math.max(maxHid, hid[i]);
+    for (i = 0; i < state.nodeEls.hidden.length; i++) {
+      tintSequential(state.nodeEls.hidden[i], hid[i] || 0, maxHid);
+    }
+    var take = result.verdict === "take";
+    var outEl = state.nodeEls.output[0];
+    if (outEl) {
+      outEl.setAttribute("fill", take ? COLOR.pass : COLOR.fail);
+      outEl.setAttribute("fill-opacity", 0.9);
+      outEl.setAttribute("stroke", take ? COLOR.pass : COLOR.fail);
+    }
+  }
+
+  // ── feature importance bar chart ──
+  function renderImportance(weights) {
+    var svg = $("impSvg");
+    svg.innerHTML = "";
+    if (!weights || !weights.available) return;
+    var names = weights.feature_names, W0 = weights.W[0];
+    var scores = names.map(function (n, i) {
+      var s = 0;
+      for (var j = 0; j < W0[i].length; j++) s += Math.abs(W0[i][j]);
+      return { name: n, score: s };
+    });
+    scores.sort(function (a, b) { return b.score - a.score; });
+    var maxScore = Math.max.apply(null, scores.map(function (s) { return s.score; })) || 1;
+
+    var rowH = 26, labelW = 160, chartW = 460, margin = 14;
+    var width = labelW + chartW + margin * 2 + 46;
+    var height = scores.length * rowH + margin * 2;
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+
+    scores.forEach(function (s, i) {
+      var y = margin + i * rowH;
+      var lbl = svgEl("text", {
+        x: labelW - 8, y: y + rowH / 2 + 4, "text-anchor": "end", fill: COLOR.fg,
+        "font-size": 11, "font-family": "ui-monospace,SFMono-Regular,Menlo,monospace"
+      });
+      lbl.textContent = s.name;
+      svg.appendChild(lbl);
+
+      var w = (s.score / maxScore) * chartW;
+      var track = svgEl("rect", {
+        x: labelW, y: y + 4, width: chartW, height: rowH - 10, rx: 4,
+        fill: COLOR.surface2
+      });
+      svg.appendChild(track);
+      var bar = svgEl("rect", {
+        x: labelW, y: y + 4, width: Math.max(2, w), height: rowH - 10, rx: 4,
+        fill: COLOR.accent
+      });
+      svg.appendChild(bar);
+      var val = svgEl("text", {
+        x: labelW + chartW + 8, y: y + rowH / 2 + 4, fill: COLOR.muted, "font-size": 10.5,
+        "font-family": "ui-monospace,SFMono-Regular,Menlo,monospace"
+      });
+      val.textContent = s.score.toFixed(2);
+      svg.appendChild(val);
+    });
+  }
+
+  // ── sliders ──
+  function renderSliders(featureNames) {
+    var wrap = $("sliders");
+    wrap.innerHTML = "";
+    featureNames.forEach(function (name) {
+      var r = FEATURE_RANGES[name] || { min: -1, max: 1, step: 0.01, def: 0 };
+      var item = document.createElement("div");
+      item.className = "slide-item";
+      var valId = "val_" + name;
+      item.innerHTML =
+        '<label for="sl_' + name + '">' + name + ' <b id="' + valId + '">' + r.def + '</b></label>' +
+        '<input type="range" id="sl_' + name + '" min="' + r.min + '" max="' + r.max + '" step="' + r.step + '" value="' + r.def + '" />';
+      wrap.appendChild(item);
+      var input = item.querySelector("input");
+      var out = item.querySelector("#" + valId);
+      input.addEventListener("input", function () {
+        out.textContent = (+input.value).toFixed(r.step < 1 ? 3 : 0).replace(/\.?0+$/, "") || "0";
+      });
+    });
+  }
+  function readSliderFeatures(featureNames) {
+    var out = {};
+    featureNames.forEach(function (name) {
+      var el = $("sl_" + name);
+      out[name] = el ? +el.value : 0;
+    });
+    return out;
+  }
+
+  // ── gauge ──
+  function polarToCartesian(cx, cy, r, angleDeg) {
+    var rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  function describeArc(cx, cy, r, a0, a1) {
+    var start = polarToCartesian(cx, cy, r, a1);
+    var end = polarToCartesian(cx, cy, r, a0);
+    var largeArc = (a1 - a0) <= 180 ? "0" : "1";
+    return ["M", start.x, start.y, "A", r, r, 0, largeArc, 0, end.x, end.y].join(" ");
+  }
+  function renderGauge(p, threshold, take) {
+    var svg = $("gaugeSvg");
+    svg.innerHTML = "";
+    var cx = 120, cy = 118, r = 92;
+    var bg = svgEl("path", { d: describeArc(cx, cy, r, -90, 90), stroke: COLOR.border, "stroke-width": 16, fill: "none", "stroke-linecap": "round" });
+    svg.appendChild(bg);
+    if (p != null) {
+      var angle = -90 + 180 * clamp(p, 0, 1);
+      var color = take ? COLOR.pass : COLOR.fail;
+      var fg = svgEl("path", { d: describeArc(cx, cy, r, -90, angle), stroke: color, "stroke-width": 16, fill: "none", "stroke-linecap": "round" });
+      svg.appendChild(fg);
+    }
+    if (threshold != null) {
+      var ta = -90 + 180 * clamp(threshold, 0, 1);
+      var p0 = polarToCartesian(cx, cy, r - 12, ta), p1 = polarToCartesian(cx, cy, r + 12, ta);
+      var tick = svgEl("line", { x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, stroke: COLOR.amber, "stroke-width": 3 });
+      svg.appendChild(tick);
+    }
+    var lo = svgEl("text", { x: cx - r, y: cy + 22, fill: COLOR.muted, "font-size": 11, "text-anchor": "middle" });
+    lo.textContent = "0.0"; svg.appendChild(lo);
+    var hi = svgEl("text", { x: cx + r, y: cy + 22, fill: COLOR.muted, "font-size": 11, "text-anchor": "middle" });
+    hi.textContent = "1.0"; svg.appendChild(hi);
+  }
+
+  // ── predict flow ──
+  function showError(msg) {
+    var box = $("errorBox");
+    if (!msg) { box.classList.add("hidden"); box.textContent = ""; return; }
+    box.textContent = msg;
+    box.classList.remove("hidden");
+  }
+  function applyResult(result) {
+    $("gaugeValue").textContent = pct(result.p_win, 1);
+    renderGauge(result.p_win, result.threshold, result.verdict === "take");
+    var badge = $("verdictBadge");
+    badge.className = "verdict " + (result.verdict === "take" ? "take" : "skip");
+    badge.textContent = result.verdict === "take" ? "TAKE" : "SKIP";
+    $("threshLine").textContent = "P(win) " + pct(result.p_win, 2) + " vs. threshold " + fmt(result.threshold, 3) +
+      " (" + (result.direction || "") + ")";
+    var raw = {
+      feature_values: result.feature_values,
+      scaled_inputs: result.scaled_inputs
+    };
+    $("rawFeatures").textContent = JSON.stringify(raw, null, 2);
+    updateActivations(result);
+  }
+
+  function setBusy(btn, busy) {
+    btn.disabled = busy;
+    btn.dataset.label = btn.dataset.label || btn.textContent;
+    btn.textContent = busy ? "Predicting…" : btn.dataset.label;
+  }
+
+  function predict(body, btn) {
+    showError(null);
+    setBusy(btn, true);
+    return fetch("/api/predict", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
+        return data;
+      });
+    }).then(function (data) {
+      applyResult(data);
+    }).catch(function (err) {
+      showError(String(err.message || err));
+    }).finally(function () {
+      setBusy(btn, false);
+    });
+  }
+
+  function wirePillGroup(id) {
+    var group = $(id);
+    var dir = "long";
+    group.querySelectorAll(".pill").forEach(function (b) {
+      b.addEventListener("click", function () {
+        group.querySelectorAll(".pill").forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active");
+        dir = b.dataset.dir;
+      });
+    });
+    return function () { return dir; };
+  }
+
+  function init() {
+    Promise.all([
+      fetch("/api/model").then(function (r) { return r.json(); }),
+      fetch("/api/weights").then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      var model = results[0], weights = results[1];
+      state.model = model; state.weights = weights;
+
+      var badge = $("modelBadge");
+      if (model.available) {
+        badge.textContent = "model loaded · layers " + model.layer_sizes.join("-");
+        badge.className = "badge ok";
+        $("archLabel").textContent = model.layer_sizes.join(" → ");
+      } else {
+        badge.textContent = "no trained model";
+        badge.className = "badge bad";
+        $("archLabel").textContent = "unavailable";
+      }
+
+      renderTiles(model);
+      renderNetwork(weights);
+      renderImportance(weights);
+      renderGauge(null, model.threshold, false);
+
+      var names = (weights && weights.feature_names) || (model && model.feature_names) || [];
+      renderSliders(names);
+
+      var getSymDir = wirePillGroup("symDirGroup");
+      var getManDir = wirePillGroup("manDirGroup");
+
+      $("symPredictBtn").addEventListener("click", function () {
+        var symbol = $("symbolInput").value.trim();
+        if (!symbol) { showError("enter a symbol, e.g. RELIANCE.NS"); return; }
+        predict({ mode: "symbol", symbol: symbol, direction: getSymDir(), period: "1y" }, $("symPredictBtn"));
+      });
+      $("manPredictBtn").addEventListener("click", function () {
+        var feats = readSliderFeatures(names);
+        predict({ mode: "manual", direction: getManDir(), features: feats }, $("manPredictBtn"));
+      });
+
+      if (!model.available) {
+        $("symPredictBtn").disabled = true;
+        $("manPredictBtn").disabled = true;
+      }
+    }).catch(function (err) {
+      $("modelBadge").textContent = "load error";
+      $("modelBadge").className = "badge bad";
+      showError("Failed to load model info: " + err);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>

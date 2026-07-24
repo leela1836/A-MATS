@@ -1,19 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
   checkHealth,
+  getBacktest,
+  getCandles,
   getPortfolio,
   getTrades,
   resetPortfolio,
   runCycle,
+  type BacktestResponse,
+  type Candle,
   type PaperTrade,
   type Portfolio,
   type RunResult,
 } from "@/lib/api";
 import { Field, StageCard, type Status } from "./StageCard";
 import { PortfolioPanel } from "./PortfolioPanel";
+import { PipelineFlow, type Stage } from "./PipelineFlow";
+import { SignalPanel } from "./SignalPanel";
+import { TradePlan } from "./TradePlan";
+import { CandleChart } from "./charts/CandleChart";
+import { EquityChart } from "./charts/EquityChart";
 
 function fmt(n: number | null | undefined, digits = 2): string {
   return n === null || n === undefined ? "—" : n.toFixed(digits);
@@ -22,11 +31,15 @@ function fmt(n: number | null | undefined, digits = 2): string {
 export function Dashboard() {
   const [symbol, setSymbol] = useState("RELIANCE.NS");
   const [result, setResult] = useState<RunResult | null>(null);
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [backtest, setBacktest] = useState<BacktestResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingBt, setLoadingBt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [trades, setTrades] = useState<PaperTrade[]>([]);
+  const [selected, setSelected] = useState<string>("reasoning");
 
   const refreshPortfolio = useCallback(async () => {
     try {
@@ -34,7 +47,27 @@ export function Dashboard() {
       setPortfolio(p);
       setTrades(t);
     } catch {
-      /* backend offline — leave last known state */
+      /* backend offline — keep last known */
+    }
+  }, []);
+
+  const loadCandles = useCallback(async (sym: string) => {
+    try {
+      const c = await getCandles(sym);
+      setCandles(c.bars);
+    } catch {
+      setCandles([]);
+    }
+  }, []);
+
+  const loadBacktest = useCallback(async (sym: string) => {
+    setLoadingBt(true);
+    try {
+      setBacktest(await getBacktest(sym));
+    } catch {
+      setBacktest(null);
+    } finally {
+      setLoadingBt(false);
     }
   }, []);
 
@@ -46,21 +79,26 @@ export function Dashboard() {
     };
     ping();
     refreshPortfolio();
+    loadCandles(symbol);
     const id = setInterval(ping, 5000);
     return () => {
       active = false;
       clearInterval(id);
     };
-  }, [refreshPortfolio]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshPortfolio, loadCandles]);
 
   const run = async () => {
+    const sym = symbol.trim().toUpperCase();
     setLoading(true);
     setError(null);
     try {
-      const res = await runCycle(symbol.trim().toUpperCase());
+      const [res] = await Promise.all([runCycle(sym), loadCandles(sym)]);
       setResult(res);
       setPortfolio(res.portfolio);
+      setSelected(res.halted ? "market" : "reasoning");
       await refreshPortfolio();
+      loadBacktest(sym); // non-blocking; equity panel fills a beat later
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
@@ -80,49 +118,62 @@ export function Dashboard() {
 
   const r = result;
 
-  // Derive per-stage status from the run result.
-  const stage = (present: boolean, halted: boolean): Status =>
-    !r ? "idle" : halted ? "halt" : present ? "pass" : "skipped";
-
   const evalStatus: Status = !r
     ? "idle"
     : r.evaluation_scores
-      ? r.evaluation_scores.passed
-        ? "pass"
-        : "halt"
+      ? r.evaluation_scores.passed ? "pass" : "halt"
       : "skipped";
   const riskStatus: Status = !r
     ? "idle"
     : r.risk_assessment
-      ? r.risk_assessment.approved
-        ? "pass"
-        : "halt"
+      ? r.risk_assessment.approved ? "pass" : "halt"
       : "skipped";
 
+  const stages: Stage[] = useMemo(() => {
+    const has = (b: boolean): Status => (!r ? "idle" : b ? "pass" : "skipped");
+    return [
+      { key: "market", label: "Market", status: has(!!r?.market_analysis), value: r?.market_analysis?.signal },
+      { key: "news", label: "News", status: has(!!r?.news_signals), value: r?.news_signals?.sentiment_label },
+      { key: "reasoning", label: "Reasoning", status: has(!!r?.reasoned_analysis), value: r?.reasoned_analysis?.direction },
+      { key: "evaluation", label: "Evaluation", status: evalStatus, value: r?.evaluation_scores ? fmt(r.evaluation_scores.overall_score) : undefined },
+      { key: "risk", label: "Risk", status: riskStatus, value: r?.risk_assessment ? `${fmt(r.risk_assessment.position_size_percent)}%` : undefined },
+      { key: "decision", label: "Decision", status: has(!!r?.decision), value: r?.decision?.action },
+      { key: "execution", label: "Execution", status: has(!!r?.execution_result), value: r?.execution_result ? (r.execution_result.filled ? "filled" : "no fill") : undefined },
+    ];
+  }, [r, evalStatus, riskStatus]);
+
+  const dayChange = useMemo(() => {
+    if (candles.length < 2) return null;
+    const a = candles[candles.length - 2].close;
+    const b = candles[candles.length - 1].close;
+    return { abs: b - a, pct: ((b - a) / a) * 100 };
+  }, [candles]);
+
+  const lastClose = candles.length ? candles[candles.length - 1].close : r?.market_analysis?.last_price ?? null;
+
   return (
-    <div className="min-h-screen max-w-3xl mx-auto px-6 py-10">
-      <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">A-MATS</h1>
-          <p className="text-sm text-muted">Agent pipeline debugger</p>
+    <div className="min-h-screen mx-auto max-w-6xl px-5 py-6">
+      {/* header */}
+      <header className="flex items-center justify-between mb-5">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-lg font-semibold tracking-tight">A-MATS</h1>
+          <span className="text-xs text-muted">agent trading dashboard · NSE</span>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span
-            className={`h-2 w-2 rounded-full ${
-              online === null
-                ? "bg-muted/40"
-                : online
-                  ? "bg-pass"
-                  : "bg-fail"
-            }`}
-          />
-          <span className="text-muted">
-            {online === null ? "…" : online ? "backend online" : "backend offline"}
+        <div className="flex items-center gap-4 text-xs font-mono">
+          {r && (
+            <span className={r.market_status.is_open ? "text-pass" : "text-halt"}>
+              {r.market_status.is_open ? "● market open" : "● market closed"}
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 text-muted">
+            <span className={`h-2 w-2 rounded-full ${online === null ? "bg-muted/40" : online ? "bg-pass" : "bg-fail"}`} />
+            {online === null ? "…" : online ? "online" : "offline"}
           </span>
         </div>
       </header>
 
-      <div className="flex gap-2 mb-6">
+      {/* controls */}
+      <div className="flex gap-2 mb-4">
         <input
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
@@ -133,218 +184,215 @@ export function Dashboard() {
         <button
           onClick={run}
           disabled={loading || !symbol.trim()}
-          className="rounded-md bg-accent px-5 py-2 text-sm font-medium text-background disabled:opacity-40 hover:opacity-90 transition-opacity"
+          className="rounded-md bg-accent px-6 py-2 text-sm font-medium text-background disabled:opacity-40 hover:opacity-90 transition-opacity"
         >
           {loading ? "Running…" : "Run cycle"}
         </button>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-md border border-fail/40 bg-fail/10 px-4 py-3 text-sm text-fail">
+        <div className="mb-4 rounded-md border border-fail/40 bg-fail/10 px-4 py-3 text-sm text-fail">
           {error}
-          <div className="text-xs text-muted mt-1">
-            Is the backend running at {API_BASE}?
+          <div className="text-xs text-muted mt-1">Is the backend running at {API_BASE}?</div>
+        </div>
+      )}
+
+      {/* row A — price chart + signals */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <div className="lg:col-span-2 rounded-lg border border-border bg-surface p-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-medium">{r?.symbol ?? symbol.toUpperCase()}</span>
+              <span className="text-lg font-mono">{lastClose !== null ? lastClose.toFixed(2) : "—"}</span>
+              {dayChange && (
+                <span className={`text-xs font-mono ${dayChange.abs >= 0 ? "text-pass" : "text-fail"}`}>
+                  {dayChange.abs >= 0 ? "+" : ""}{dayChange.abs.toFixed(2)} ({dayChange.pct.toFixed(2)}%)
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] text-muted font-mono">{candles.length} bars · daily</span>
           </div>
+          <CandleChart
+            candles={candles}
+            levels={
+              r?.reasoned_analysis
+                ? {
+                    entry: r.reasoned_analysis.entry_price,
+                    stop: r.reasoned_analysis.stop_loss,
+                    target: r.reasoned_analysis.take_profit,
+                  }
+                : undefined
+            }
+          />
+        </div>
+        <SignalPanel market={r?.market_analysis ?? null} news={r?.news_signals ?? null} />
+      </div>
+
+      {/* row B — pipeline flow + selected stage detail */}
+      <div className="rounded-lg border border-border bg-surface p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium">Agent pipeline</span>
+          {r?.halted && <span className="text-xs text-halt font-mono">halted · {r.halt_reason}</span>}
+        </div>
+        <PipelineFlow stages={stages} selected={selected} onSelect={setSelected} />
+        <div className="mt-4">
+          <StageDetail selected={selected} r={r} />
+        </div>
+      </div>
+
+      {/* reasoning thesis + full trade plan */}
+      {r?.reasoned_analysis && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-lg border border-border bg-surface px-4 py-3">
+            <div className="text-xs text-muted mb-1">Thesis</div>
+            <p className="text-sm text-foreground leading-relaxed">{r.reasoned_analysis.thesis}</p>
+          </div>
+          <TradePlan r={r.reasoned_analysis} />
         </div>
       )}
 
-      {portfolio && (
-        <div className="mb-6">
-          <PortfolioPanel portfolio={portfolio} trades={trades} onReset={reset} />
-        </div>
-      )}
-
-      {r && (
-        <>
-          {!r.market_status.is_open && (
-            <div className="mb-6 rounded-md border border-halt/40 bg-halt/10 px-4 py-3 text-sm">
-              <span className="text-halt font-medium">Market closed</span>{" "}
-              <span className="font-mono text-foreground">
-                {r.market_status.reason}
-              </span>
-              <div className="text-xs text-muted mt-1 font-mono">
-                {r.market_status.now_ist}
-                {r.market_status.next_open_ist &&
-                  ` · next open ${r.market_status.next_open_ist}`}
-                {" · analysis runs, but orders are blocked against a stale close"}
+      {/* row C — portfolio + equity/backtest */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {portfolio && <PortfolioPanel portfolio={portfolio} trades={trades} onReset={reset} />}
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Strategy backtest</span>
+            <span className="text-[11px] text-muted font-mono">
+              {loadingBt ? "running…" : backtest ? backtest.metrics.period : "run a cycle"}
+            </span>
+          </div>
+          {backtest ? (
+            <>
+              <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                <BtStat label="return" value={`${backtest.metrics.total_return_pct.toFixed(1)}%`} tone={backtest.metrics.total_return_pct >= 0 ? "text-pass" : "text-fail"} />
+                <BtStat label="win rate" value={`${backtest.metrics.win_rate_pct.toFixed(0)}%`} />
+                <BtStat label="max DD" value={`${backtest.metrics.max_drawdown_pct.toFixed(1)}%`} tone="text-halt" />
+                <BtStat label="trades" value={String(backtest.metrics.total_trades)} />
               </div>
+              <EquityChart points={backtest.equity_curve} />
+            </>
+          ) : (
+            <div className="grid place-items-center text-xs text-muted h-[210px]">
+              {loadingBt ? "Replaying history…" : "Backtest loads after a cycle runs."}
             </div>
           )}
+        </div>
+      </div>
 
-          {r.halted && (
-            <div className="mb-6 rounded-md border border-halt/40 bg-halt/10 px-4 py-3 text-sm">
-              <span className="text-halt font-medium">Run halted:</span>{" "}
-              <span className="font-mono text-foreground">{r.halt_reason}</span>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <StageCard
-              title="Market"
-              subtitle="technical read"
-              status={stage(!!r.market_analysis, false)}
-            >
-              {r.market_analysis && (
-                <>
-                  <Field label="last_price" value={fmt(r.market_analysis.last_price)} />
-                  <Field label="trend" value={r.market_analysis.trend} />
-                  <Field label="signal" value={r.market_analysis.signal} />
-                  <Field label="confidence" value={fmt(r.market_analysis.confidence)} />
-                  {Object.entries(r.market_analysis.indicators).map(([k, v]) => (
-                    <Field key={k} label={k} value={v === null ? "—" : fmt(v)} />
-                  ))}
-                </>
-              )}
-            </StageCard>
-
-            <StageCard
-              title="News"
-              subtitle="curated Indian financial sources"
-              status={r.news_signals ? "pass" : "skipped"}
-            >
-              {r.news_signals && (
-                <>
-                  <Field
-                    label="sentiment"
-                    value={
-                      <span
-                        className={
-                          r.news_signals.sentiment_score > 0.15
-                            ? "text-pass"
-                            : r.news_signals.sentiment_score < -0.15
-                              ? "text-fail"
-                              : "text-muted"
-                        }
-                      >
-                        {r.news_signals.sentiment_score > 0 ? "+" : ""}
-                        {fmt(r.news_signals.sentiment_score)} ({r.news_signals.sentiment_label})
-                      </span>
-                    }
-                  />
-                  <Field label="confidence" value={fmt(r.news_signals.confidence)} />
-                  <Field label="articles" value={String(r.news_signals.article_count)} />
-                  {r.news_signals.key_events.length > 0 && (
-                    <div className="pt-1">
-                      <div className="text-muted mb-1">key_events</div>
-                      {r.news_signals.key_events.map((e, i) => (
-                        <div key={i} className="text-foreground pl-2">· {e}</div>
-                      ))}
-                    </div>
-                  )}
-                  {r.news_signals.articles.length > 0 && (
-                    <details className="pt-2">
-                      <summary className="cursor-pointer text-muted hover:text-foreground">
-                        headlines ({r.news_signals.articles.length})
-                      </summary>
-                      <div className="pt-2 space-y-1">
-                        {r.news_signals.articles.map((a, i) => (
-                          <div key={i} className="flex gap-2">
-                            <span
-                              className={
-                                a.relevance === "direct" ? "text-accent" : "text-muted"
-                              }
-                            >
-                              [{a.relevance}]
-                            </span>
-                            <span className="text-foreground flex-1">{a.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </>
-              )}
-            </StageCard>
-
-            <StageCard
-              title="Reasoning"
-              subtitle="thesis + levels"
-              status={stage(!!r.reasoned_analysis, false)}
-            >
-              {r.reasoned_analysis && (
-                <>
-                  <div className="text-foreground pb-1">{r.reasoned_analysis.thesis}</div>
-                  <Field label="direction" value={r.reasoned_analysis.direction} />
-                  <Field label="entry" value={fmt(r.reasoned_analysis.entry_price)} />
-                  <Field label="stop_loss" value={fmt(r.reasoned_analysis.stop_loss)} />
-                  <Field label="take_profit" value={fmt(r.reasoned_analysis.take_profit)} />
-                </>
-              )}
-            </StageCard>
-
-            <StageCard
-              title="Evaluation"
-              subtitle="veto gate"
-              status={evalStatus}
-            >
-              {r.evaluation_scores && (
-                <>
-                  <Field label="overall_score" value={fmt(r.evaluation_scores.overall_score)} />
-                  {Object.entries(r.evaluation_scores.dimensions).map(([k, v]) => (
-                    <Field key={k} label={k} value={fmt(v)} />
-                  ))}
-                  <Field label="reason" value={r.evaluation_scores.reason} />
-                </>
-              )}
-            </StageCard>
-
-            <StageCard title="Risk" subtitle="sizing gate" status={riskStatus}>
-              {r.risk_assessment ? (
-                <>
-                  <Field label="size_%" value={fmt(r.risk_assessment.position_size_percent)} />
-                  <Field label="risk/trade_%" value={fmt(r.risk_assessment.risk_per_trade_percent)} />
-                  <Field label="reason" value={r.risk_assessment.reason} />
-                </>
-              ) : (
-                <span className="text-xs">not reached</span>
-              )}
-            </StageCard>
-
-            <StageCard
-              title="Decision"
-              status={r.decision ? "pass" : "skipped"}
-            >
-              {r.decision ? (
-                <>
-                  <Field label="action" value={r.decision.action} />
-                  <Field label="size_%" value={fmt(r.decision.size_percent)} />
-                </>
-              ) : (
-                <span className="text-xs">not reached</span>
-              )}
-            </StageCard>
-
-            <StageCard
-              title="Execution"
-              subtitle={r.execution_result?.mode ?? "simulation"}
-              status={r.execution_result ? "pass" : r ? "skipped" : "idle"}
-            >
-              {r.execution_result ? (
-                <>
-                  <Field label="filled" value={String(r.execution_result.filled)} />
-                  <Field label="fill_price" value={fmt(r.execution_result.fill_price)} />
-                  <Field label="note" value={r.execution_result.note} />
-                </>
-              ) : (
-                <span className="text-xs">not reached</span>
-              )}
-            </StageCard>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 rounded-md border border-border bg-surface-2 px-4 py-3 text-xs font-mono text-muted">
-            <span>run_id: <span className="text-foreground">{r.trace.run_id}</span></span>
-            <span>duration: <span className="text-foreground">{fmt(r.trace.total_ms)}ms</span></span>
-            <span>tokens: <span className="text-foreground">{r.trace.total_tokens}</span></span>
-            <span>cost: <span className="text-foreground">${fmt(r.trace.total_cost_usd, 6)}</span></span>
-          </div>
-        </>
+      {/* trace footer */}
+      {r && (
+        <div className="flex flex-wrap gap-x-8 gap-y-2 rounded-md border border-border bg-surface-2 px-4 py-3 text-xs font-mono text-muted">
+          <span>run_id <span className="text-foreground">{r.trace.run_id}</span></span>
+          <span>duration <span className="text-foreground">{fmt(r.trace.total_ms)}ms</span></span>
+          <span>tokens <span className="text-foreground">{r.trace.total_tokens}</span></span>
+          <span>cost <span className="text-foreground">${fmt(r.trace.total_cost_usd, 6)}</span></span>
+        </div>
       )}
 
       {!r && !error && (
-        <p className="text-sm text-muted text-center py-16">
-          Enter a symbol and run a cycle to trace the agent pipeline.
+        <p className="text-sm text-muted text-center py-8">
+          Enter a symbol and run a cycle to drive the full agent pipeline.
         </p>
       )}
     </div>
   );
+}
+
+function BtStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div>
+      <div className={`text-sm font-mono ${tone ?? "text-foreground"}`}>{value}</div>
+      <div className="text-[10px] text-muted">{label}</div>
+    </div>
+  );
+}
+
+/** Detail for the currently selected pipeline stage. */
+function StageDetail({ selected, r }: { selected: string; r: RunResult | null }) {
+  if (!r) return <div className="text-xs text-muted">Run a cycle to inspect each stage.</div>;
+
+  const wrap = (title: string, sub: string, status: Status, body: React.ReactNode) => (
+    <StageCard title={title} subtitle={sub} status={status}>{body}</StageCard>
+  );
+
+  switch (selected) {
+    case "market":
+      return wrap("Market", "technical read", r.market_analysis ? "pass" : "skipped",
+        r.market_analysis && (
+          <>
+            <Field label="last_price" value={fmt(r.market_analysis.last_price)} />
+            <Field label="trend / signal" value={`${r.market_analysis.trend} / ${r.market_analysis.signal}`} />
+            <Field label="confidence" value={fmt(r.market_analysis.confidence)} />
+            <Field label="nn P(win)" value={r.market_analysis.nn_score === null ? "—" : fmt(r.market_analysis.nn_score)} />
+            {Object.entries(r.market_analysis.indicators).map(([k, v]) => (
+              <Field key={k} label={k} value={v === null ? "—" : fmt(v)} />
+            ))}
+          </>
+        ));
+    case "news":
+      return wrap("News", "curated Indian sources", r.news_signals ? "pass" : "skipped",
+        r.news_signals && (
+          <>
+            <Field label="sentiment" value={`${r.news_signals.sentiment_score > 0 ? "+" : ""}${fmt(r.news_signals.sentiment_score)} (${r.news_signals.sentiment_label})`} />
+            <Field label="confidence" value={fmt(r.news_signals.confidence)} />
+            <Field label="articles" value={String(r.news_signals.article_count)} />
+            {r.news_signals.key_events.slice(0, 4).map((e, i) => (
+              <div key={i} className="text-foreground pl-2">· {e}</div>
+            ))}
+          </>
+        ));
+    case "reasoning":
+      return wrap("Reasoning", "thesis + levels", r.reasoned_analysis ? "pass" : "skipped",
+        r.reasoned_analysis && (
+          <>
+            <Field label="direction" value={r.reasoned_analysis.direction} />
+            <Field label="confidence" value={fmt(r.reasoned_analysis.confidence)} />
+            <Field label="entry" value={fmt(r.reasoned_analysis.entry_price)} />
+            <Field label="stop_loss" value={fmt(r.reasoned_analysis.stop_loss)} />
+            <Field label="take_profit" value={fmt(r.reasoned_analysis.take_profit)} />
+          </>
+        ));
+    case "evaluation":
+      return wrap("Evaluation", "veto gate",
+        r.evaluation_scores ? (r.evaluation_scores.passed ? "pass" : "halt") : "skipped",
+        r.evaluation_scores && (
+          <>
+            <Field label="overall_score" value={fmt(r.evaluation_scores.overall_score)} />
+            {Object.entries(r.evaluation_scores.dimensions).map(([k, v]) => (
+              <Field key={k} label={k} value={fmt(v)} />
+            ))}
+            <Field label="reason" value={r.evaluation_scores.reason} />
+          </>
+        ));
+    case "risk":
+      return wrap("Risk", "sizing gate",
+        r.risk_assessment ? (r.risk_assessment.approved ? "pass" : "halt") : "skipped",
+        r.risk_assessment ? (
+          <>
+            <Field label="size_%" value={fmt(r.risk_assessment.position_size_percent)} />
+            <Field label="risk/trade_%" value={fmt(r.risk_assessment.risk_per_trade_percent)} />
+            <Field label="reason" value={r.risk_assessment.reason} />
+          </>
+        ) : <span className="text-xs">not reached</span>);
+    case "decision":
+      return wrap("Decision", "final call", r.decision ? "pass" : "skipped",
+        r.decision ? (
+          <>
+            <Field label="action" value={r.decision.action} />
+            <Field label="size_%" value={fmt(r.decision.size_percent)} />
+            <Field label="rationale" value={r.decision.rationale} />
+          </>
+        ) : <span className="text-xs">not reached</span>);
+    case "execution":
+      return wrap("Execution", r.execution_result?.mode ?? "paper", r.execution_result ? "pass" : "skipped",
+        r.execution_result ? (
+          <>
+            <Field label="filled" value={String(r.execution_result.filled)} />
+            <Field label="fill_price" value={fmt(r.execution_result.fill_price)} />
+            <Field label="note" value={r.execution_result.note} />
+          </>
+        ) : <span className="text-xs">not reached</span>);
+    default:
+      return null;
+  }
 }

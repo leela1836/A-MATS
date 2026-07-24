@@ -68,6 +68,13 @@ class ReasonedAnalysis(BaseModel):
     entry_price: float
     stop_loss: float
     take_profit: float
+    # Trade-plan narrative + derived numbers, so a proposal reads as a plan,
+    # not three bare prices.
+    entry_rationale: str = ""      # why THIS level is a good entry
+    confirmation: str = ""         # what must happen to trigger/validate it
+    invalidation: str = ""         # what would prove the thesis wrong
+    risk_reward: float = 0.0       # |target-entry| / |entry-stop| (computed)
+    est_hold_days: Optional[int] = None  # ATR-based holding-duration estimate
 
 
 class EvaluationScores(BaseModel):

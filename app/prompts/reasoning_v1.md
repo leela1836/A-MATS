@@ -38,6 +38,20 @@ Then set levels:
 
 Set `confidence` between 0 and 1 reflecting how well the evidence lines up.
 
+Then explain the plan in three short fields:
+
+- `entry_rationale`: why THIS level is the best entry right now — cite the trend,
+  the price's position versus EMA20/50, and how the ATR-based stop sits relative
+  to structure. For `hold`, say plainly why there is no good entry yet.
+- `confirmation`: the concrete trigger that would validate the setup before or
+  just after entry (e.g. "a daily close back above EMA20 on rising volume", "RSI
+  turning up from the low-40s"). Name a condition, not a hope.
+- `invalidation`: what specific price action would prove the thesis wrong (e.g.
+  "a close below the stop", "trend flips to down") — the line in the sand.
+
+(Reward-to-risk and an estimated holding duration are computed by the system
+from your levels and ATR — you do not need to output them.)
+
 ## Discipline rules — follow these strictly
 
 1. **Do not invent data.** Reason only from the numbers provided. You have no
@@ -77,6 +91,9 @@ Return ONLY a JSON object, no prose or code fences, with exactly these keys:
   "confidence": 0.0-1.0,
   "entry_price": number,
   "stop_loss": number,
-  "take_profit": number
+  "take_profit": number,
+  "entry_rationale": "why this is the best entry now",
+  "confirmation": "the concrete trigger that validates the setup",
+  "invalidation": "the price action that proves the thesis wrong"
 }
 ```

@@ -3,6 +3,14 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
+export interface CandlePattern {
+  name: string;
+  direction: string;
+  strength: number;
+  bars: number;
+  note: string;
+}
+
 export interface MarketAnalysis {
   symbol: string;
   last_price: number | null;
@@ -10,6 +18,30 @@ export interface MarketAnalysis {
   signal: string;
   confidence: number;
   indicators: Record<string, number | null>;
+  patterns: CandlePattern[];
+  pattern_bias: string;
+  pattern_score: number;
+  nn_score: number | null;
+}
+
+export interface Candle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  ema20: number;
+  ema50: number;
+  ema200: number;
+  pattern: string | null;
+  pattern_dir: string | null;
+}
+
+export interface CandlesResponse {
+  symbol: string;
+  period: string;
+  bars: Candle[];
 }
 
 export interface NewsArticleRef {
@@ -40,6 +72,11 @@ export interface ReasonedAnalysis {
   entry_price: number | null;
   stop_loss: number | null;
   take_profit: number | null;
+  entry_rationale: string;
+  confirmation: string;
+  invalidation: string;
+  risk_reward: number;
+  est_hold_days: number | null;
 }
 
 export interface EvaluationScores {
@@ -178,6 +215,41 @@ export async function getTrades(limit = 20): Promise<PaperTrade[]> {
 export async function resetPortfolio(): Promise<Portfolio> {
   const res = await fetch(`${API_BASE}/portfolio/reset`, { method: "POST" });
   if (!res.ok) throw new Error(`Reset failed (${res.status})`);
+  return res.json();
+}
+
+export async function getCandles(symbol: string, bars = 130): Promise<CandlesResponse> {
+  const res = await fetch(
+    `${API_BASE}/candles/${encodeURIComponent(symbol)}?bars=${bars}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`Candles fetch failed (${res.status})`);
+  return res.json();
+}
+
+export interface BacktestMetrics {
+  symbol: string;
+  period: string;
+  total_return_pct: number;
+  total_trades: number;
+  win_rate_pct: number;
+  profit_factor: number | null;
+  max_drawdown_pct: number;
+  sharpe: number | null;
+  sample_warning?: string;
+}
+
+export interface BacktestResponse {
+  metrics: BacktestMetrics;
+  equity_curve: { date: string; equity: number }[];
+}
+
+export async function getBacktest(symbol: string, period = "2y"): Promise<BacktestResponse> {
+  const res = await fetch(
+    `${API_BASE}/backtest/${encodeURIComponent(symbol)}?period=${period}&include_trades=false`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw new Error(`Backtest failed (${res.status})`);
   return res.json();
 }
 
