@@ -36,6 +36,28 @@ large-caps. Timing/screening adds no value on Indian equities, large OR mid cap.
 The remaining honest path is cross-sectional selection or reframing as
 analysis/education — NOT more timing variants.
 
+**Cross-sectional momentum — tested; the CLOSEST, but still not usable.** 94
+names (large+mid), monthly rebalance, 12-1 momentum, top quintile, net of costs:
+| approach | CAGR | maxDD |
+|---|---|---|
+| momentum top 20% | +18.5% | 25.0% |
+| market (equal-wt hold all) | +18.0% | 18.5% |
+| momentum bottom 20% | +17.6% | 19.7% |
+Ordering is correct (top>market>bottom = a real momentum effect), and it's the
+FIRST arm to beat the benchmark — but by only +0.5pp CAGR, with HIGHER drawdown,
+so risk-adjusted it's not better. Top-minus-bottom spread +0.9pp (a real momentum
+market shows 5-15pp). Everything ≈+18% CAGR because the market ripped — that beta
+is the whole story.
+
+**FINAL VERDICT of the alpha search: across timing (daily/weekly, EMA/RSI,
+Weinstein, filtered), large- and mid-cap, and cross-sectional selection, NOTHING
+meaningfully beats holding a diversified basket on Indian equities 2021-2026.
+Selection is the right family (momentum ordering is correct) but the edge is
+negligible on this universe/period. Honest paths: (a) run the system as the
+autonomous paper-learning / analysis / education platform it genuinely is, or
+(b) if pursuing momentum, do it properly — NIFTY 500, multi-regime history (not
+just a bull run), long-short — expecting a small edge at best.**
+
 Historical note — infrastructure is solid and well-tested; the *signal* is weak.
 Early daily measurement over 5 years on six NSE large-caps:
 
