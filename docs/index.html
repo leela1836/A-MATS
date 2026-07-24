@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A-MATS · live</title>
+<style>
+  :root{
+    --bg:#0b0e14; --surface:#131824; --surface2:#1a2130; --border:#232c3d;
+    --fg:#e6edf3; --muted:#8b98ab; --accent:#4f9dff; --green:#3fb950;
+    --red:#f85149; --amber:#f0883e; --teal:#3fb9a0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 40px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+  .brand{font-weight:700;font-size:18px;letter-spacing:-.02em}
+  .brand span{color:var(--muted);font-weight:400;font-size:12px;margin-left:6px}
+  .live{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 0 rgba(63,185,80,.5);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.45)}70%{box-shadow:0 0 0 7px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
+  .sub{color:var(--muted);font-size:12px;margin:2px 0 14px}
+  .note{background:rgba(240,136,62,.08);border:1px solid rgba(240,136,62,.3);
+    color:#f0b58e;border-radius:10px;padding:9px 12px;font-size:12px;margin-bottom:16px;line-height:1.5}
+  .nav{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .nav a{background:var(--surface);border:1px solid var(--border);border-radius:999px;
+    padding:8px 14px;font-size:13px;font-weight:500}
+  .nav a.active{border-color:var(--accent);color:var(--accent)}
+  .runbtn{background:rgba(79,157,255,.12);border:1px solid var(--accent);color:var(--accent);
+    border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .runbtn:active{transform:translateY(1px)}
+  .tokpanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:16px;font-size:12.5px;line-height:1.55}
+  .tokpanel ol{margin:8px 0;padding-left:20px;color:var(--muted)}
+  .tokpanel input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--fg);
+    border-radius:8px;padding:9px;font-family:ui-monospace,monospace;font-size:12px;margin:8px 0}
+  .tokpanel .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .tokpanel button{background:var(--accent);color:#0b0e14;border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--surface2);
+    border:1px solid var(--border);border-radius:10px;padding:11px 16px;font-size:13px;z-index:50;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:90vw}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;margin-bottom:16px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 12px;overflow:hidden}
+  .tile .v{font-size:18px;font-weight:600}
+  .tile .l{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:16px}
+  .card h2{margin:0 0 10px;font-size:14px;font-weight:600}
+  .chart{position:relative;width:100%;height:200px;touch-action:none}
+  .tt{position:absolute;pointer-events:none;background:var(--surface2);border:1px solid var(--border);
+    border-radius:8px;padding:6px 9px;font-size:11px;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.4);white-space:nowrap}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+  .chip{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:999px;
+    padding:6px 12px;font-size:12px;cursor:pointer;user-select:none}
+  .chip.on{border-color:var(--accent);color:var(--fg);background:rgba(79,157,255,.1)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--muted);font-weight:500;padding:7px 8px;font-size:11px;
+    position:sticky;top:0;background:var(--surface)}
+  td{padding:9px 8px;border-top:1px solid var(--border);vertical-align:top}
+  .sym{font-weight:600}
+  .long{color:var(--green)} .short{color:var(--red)} .hold{color:var(--muted)}
+  .pill{font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--border)}
+  .win{color:var(--green);border-color:rgba(63,185,80,.4)} .loss{color:var(--red);border-color:rgba(248,81,73,.4)}
+  .th{color:var(--muted);font-size:11px;margin-top:3px;line-height:1.45;max-width:520px}
+  .llm{color:var(--accent);font-size:10px}
+  footer{color:var(--muted);font-size:11px;text-align:center;margin-top:22px;line-height:1.6}
+  .empty{color:var(--muted);text-align:center;padding:26px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">A-MATS<span>autonomous paper agent · NSE</span></div>
+    <div class="live"><span class="dot"></span><span id="updated">connecting…</span></div>
+  </header>
+  <div class="sub">It screens the market, reasons, paper-trades, and learns — on its own, in the cloud.</div>
+  <div class="note">📄 <b>Paper trading, not advice.</b> Extensive testing shows it does <b>not beat buy-and-hold</b> — run it to watch an agent reason &amp; learn, not for returns.</div>
+
+  <div class="nav">
+    <a class="active" href="./">Track record</a>
+    <a href="./nn.html">Neural-net health →</a>
+    <button class="runbtn" onclick="runScan()">⚡ Run a scan now</button>
+  </div>
+
+  <div class="tokpanel" id="tokpanel" hidden>
+    One-tap scans trigger the GitHub Action directly. That needs a token, kept
+    <b>only in this browser</b> — never uploaded, never in the page.
+    <ol>
+      <li>GitHub → <b>Settings → Developer settings → Fine-grained tokens → Generate</b>.</li>
+      <li>Repository access: <b>only A-MATS</b>. Permissions → <b>Actions: Read and write</b>.</li>
+      <li>Paste it below (starts <span class="mono">github_pat_…</span>).</li>
+    </ol>
+    <input id="tokin" type="password" placeholder="github_pat_..." autocomplete="off" />
+    <div class="row">
+      <button onclick="saveTok()">Save &amp; enable</button>
+      <a href="https://github.com/leela1836/A-MATS/actions/workflows/scan.yml" target="_blank" rel="noopener">…or just open the Actions page</a>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <h2>Equity curve <span class="mono" style="color:var(--muted);font-weight:400" id="eqmeta"></span></h2>
+    <div class="chart" id="chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>Decisions</h2>
+    <div class="chips" id="chips"></div>
+    <div style="max-height:60vh;overflow:auto">
+      <table><thead><tr>
+        <th>Symbol</th><th>Dir</th><th class="mono" style="text-align:right">Entry</th>
+        <th class="mono" style="text-align:right">P(win)</th><th>Status</th><th class="mono" style="text-align:right">P&amp;L</th>
+      </tr></thead><tbody id="rows"></tbody></table>
+    </div>
+  </div>
+
+  <footer>
+    Updates itself as the agent scans (3×/day). Built with A-MATS · data is a virtual ₹1,00,000 book.<br>
+    <span id="stamp"></span>
+  </footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ── trigger a scan (workflow_dispatch) ── token lives only in localStorage
+const REPO='leela1836/A-MATS', WF='scan.yml', REF='master';
+const ghTok=()=>localStorage.getItem('amats_ghtok')||'';
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;
+  clearTimeout(t._t);t._t=setTimeout(()=>t.hidden=true,4500);}
+function saveTok(){const v=document.getElementById('tokin').value.trim();
+  if(!v){toast('Paste a token first');return;}
+  localStorage.setItem('amats_ghtok',v);document.getElementById('tokpanel').hidden=true;
+  document.getElementById('tokin').value='';toast('Saved in this browser — tap Run a scan again');}
+async function runScan(){
+  if(!ghTok()){document.getElementById('tokpanel').hidden=false;
+    document.getElementById('tokpanel').scrollIntoView({behavior:'smooth'});return;}
+  toast('Queuing scan…');
+  try{
+    const r=await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${WF}/dispatches`,{
+      method:'POST',headers:{'Authorization':'Bearer '+ghTok(),'Accept':'application/vnd.github+json',
+        'X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({ref:REF})});
+    if(r.status===204){toast('✅ Scan queued — data refreshes in ~3 min');}
+    else if(r.status===401||r.status===403){localStorage.removeItem('amats_ghtok');
+      toast('⚠️ Token rejected — add it again');document.getElementById('tokpanel').hidden=false;}
+    else toast('Could not queue (HTTP '+r.status+')');
+  }catch(e){toast('Network error — check connection');}
+}
+</script>
+
+<script>
+const C={green:'#3fb950',red:'#f85149',muted:'#8b98ab',accent:'#4f9dff',border:'#232c3d',surface2:'#1a2130',fg:'#e6edf3'};
+const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+let FILTER='all', DATA=null;
+
+function tiles(s,eq){
+  const last=eq.length?eq[eq.length-1]:{equity:100000,return_percent:0};
+  const ret=last.return_percent||0;
+  const t=[
+    ['Equity',inr(last.equity||100000),C.fg],
+    ['Return',(ret>=0?'+':'')+ret.toFixed(2)+'%',ret>0?C.green:ret<0?C.red:C.fg],
+    ['Win rate',s.win_rate_pct==null?'—':s.win_rate_pct+'%',C.fg],
+    ['Open',s.open,C.fg],
+    ['Decisions',s.decisions,C.fg],
+    ['Scans',s.scans,C.fg],
+  ];
+  document.getElementById('tiles').innerHTML=t.map(([l,v,c])=>
+    `<div class="tile"><div class="v mono" style="color:${c}">${v}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function chart(eq){
+  const el=document.getElementById('chart'); el.innerHTML='';
+  if(eq.length<2){el.innerHTML='<div class="empty">No equity history yet — it fills in as trades resolve.</div>';return;}
+  const W=el.clientWidth,H=el.clientHeight,P={t:10,r:12,b:18,l:46};
+  const pts=eq.map((p,i)=>({i,v:p.equity,ts:p.ts}));
+  const lo=Math.min(...pts.map(p=>p.v)),hi=Math.max(...pts.map(p=>p.v)),span=(hi-lo)||1;
+  const x=i=>P.l+(i/(pts.length-1))*(W-P.l-P.r);
+  const y=v=>P.t+(hi-v)/span*(H-P.t-P.b);
+  const up=pts[pts.length-1].v>=pts[0].v, col=up?C.green:C.red;
+  const d=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(p.v).toFixed(1)).join(' ');
+  const area=d+`L${x(pts.length-1).toFixed(1)},${(H-P.b).toFixed(1)}L${x(0).toFixed(1)},${(H-P.b).toFixed(1)}Z`;
+  const grid=[hi,(hi+lo)/2,lo].map(v=>`<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="${C.border}"/>
+    <text x="${P.l-6}" y="${y(v)+3}" fill="${C.muted}" font-size="9" text-anchor="end" font-family="monospace">${(v/1000).toFixed(0)}k</text>`).join('');
+  el.innerHTML=`<svg width="${W}" height="${H}" id="svg">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<path d="${area}" fill="url(#g)"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.8"/>
+    <g id="cross" style="display:none"><line stroke="${C.muted}" stroke-dasharray="3 3"/><circle r="3.5" fill="${col}" stroke="#131824" stroke-width="1.5"/></g></svg>`;
+  const svg=el.querySelector('#svg'),cross=el.querySelector('#cross'),line=cross.querySelector('line'),dotc=cross.querySelector('circle');
+  let tt=el.querySelector('.tt'); if(!tt){tt=document.createElement('div');tt.className='tt';el.appendChild(tt);}
+  function move(ev){
+    const r=svg.getBoundingClientRect();const cx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;
+    let i=Math.round(((cx-P.l)/(W-P.l-P.r))*(pts.length-1));i=Math.max(0,Math.min(pts.length-1,i));
+    const p=pts[i];cross.style.display='';line.setAttribute('x1',x(i));line.setAttribute('x2',x(i));
+    line.setAttribute('y1',P.t);line.setAttribute('y2',H-P.b);dotc.setAttribute('cx',x(i));dotc.setAttribute('cy',y(p.v));
+    tt.style.display='';tt.innerHTML=`<b>${inr(p.v)}</b><br><span style="color:${C.muted}">${(p.ts||'').slice(0,10)}</span>`;
+    tt.style.left=Math.min(Math.max(x(i)-tt.offsetWidth/2,2),W-tt.offsetWidth-2)+'px';tt.style.top='6px';
+  }
+  svg.addEventListener('pointermove',move);svg.addEventListener('touchmove',move,{passive:true});
+  svg.addEventListener('pointerleave',()=>{cross.style.display='none';tt.style.display='none'});
+}
+
+function chips(){
+  const f=[['all','All'],['long','Long'],['short','Short'],['open','Open'],['closed','Resolved']];
+  document.getElementById('chips').innerHTML=f.map(([k,l])=>
+    `<span class="chip ${FILTER===k?'on':''}" data-f="${k}">${l}</span>`).join('');
+  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{FILTER=c.dataset.f;chips();rows();});
+}
+
+function rows(){
+  const ds=(DATA.decisions||[]).filter(d=>{
+    if(FILTER==='all')return true;
+    if(FILTER==='open')return d.status==='open';
+    if(FILTER==='closed')return d.status==='closed'&&d.direction!=='hold';
+    return d.direction===FILTER;});
+  const body=document.getElementById('rows');
+  if(!ds.length){body.innerHTML='<tr><td colspan="6" class="empty">No decisions match.</td></tr>';return;}
+  body.innerHTML=ds.map(d=>{
+    const st=d.status==='closed'&&d.outcome&&d.outcome!=='flat'
+      ? `<span class="pill ${d.outcome}">${d.outcome}</span>` : `<span class="pill">${d.status}</span>`;
+    const pnl=d.pnl_pct==null?'—':`<span class="${d.pnl_pct>0?'long':d.pnl_pct<0?'short':'hold'}">${d.pnl_pct>0?'+':''}${d.pnl_pct}</span>`;
+    const th=(d.source==='llm'&&d.thesis)?`<div class="th"><span class="llm">✦ reasoned</span> ${d.thesis}</div>`:'';
+    return `<tr><td><span class="sym">${d.symbol.replace('.NS','')}</span>${th}</td>
+      <td class="${d.direction}">${d.direction}</td>
+      <td class="mono" style="text-align:right">${d.entry_price??'—'}</td>
+      <td class="mono" style="text-align:right">${d.nn_score??'—'}</td>
+      <td>${st}</td><td class="mono" style="text-align:right">${pnl}</td></tr>`;}).join('');
+}
+
+function render(){
+  tiles(DATA.stats,DATA.equity);
+  document.getElementById('eqmeta').textContent=DATA.equity.length?`· ${DATA.equity.length} snapshots`:'';
+  chart(DATA.equity);chips();rows();
+  const g=new Date(DATA.generated_at);
+  document.getElementById('updated').textContent='updated '+g.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+  document.getElementById('stamp').textContent='last data: '+g.toLocaleString('en-IN');
+}
+
+async function load(){
+  try{
+    const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+    DATA=await r.json();render();
+  }catch(e){document.getElementById('updated').textContent='no data yet';
+    document.getElementById('tiles').innerHTML='<div class="empty" style="grid-column:1/-1">Waiting for the first scan to publish data…</div>';}
+}
+load();
+setInterval(load,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+window.addEventListener('resize',()=>{if(DATA)chart(DATA.equity)});
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A-MATS · neural-net health</title>
+<style>
+  :root{
+    --bg:#0b0e14; --surface:#131824; --surface2:#1a2130; --border:#232c3d;
+    --fg:#e6edf3; --muted:#8b98ab; --accent:#4f9dff; --green:#3fb950;
+    --red:#f85149; --amber:#f0883e; --pos:#2f7ff0; --neg:#f85149;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 40px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;flex-wrap:wrap}
+  .brand{font-weight:700;font-size:18px;letter-spacing:-.02em}
+  .brand span{color:var(--muted);font-weight:400;font-size:12px;margin-left:6px}
+  .sub{color:var(--muted);font-size:12px;margin:2px 0 14px}
+  .nav{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .nav a{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:500}
+  .nav a.active{border-color:var(--accent);color:var(--accent)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 12px;overflow:hidden}
+  .tile .v{font-size:17px;font-weight:600}
+  .tile .l{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:14px;font-weight:600}
+  .card p.hint{margin:0 0 10px;color:var(--muted);font-size:11.5px;line-height:1.5}
+  .graph{width:100%;overflow-x:auto}
+  .fi{display:flex;flex-direction:column;gap:6px}
+  .firow{display:grid;grid-template-columns:minmax(0,108px) 1fr 30px;align-items:center;gap:8px;font-size:11.5px}
+  .firow>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fibar{height:12px;background:var(--accent);border-radius:3px;min-width:2px}
+  .grid2{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:640px){.grid2{grid-template-columns:1.1fr .9fr}}
+  .sliders{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px}
+  .sl label{display:block;font-size:10.5px;color:var(--muted);margin-bottom:2px;display:flex;justify-content:space-between}
+  .sl input[type=range]{width:100%;accent-color:var(--accent)}
+  .val{color:var(--fg)}
+  .toggle{display:flex;gap:6px;margin:4px 0 10px}
+  .toggle button{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px;font-size:12px;font-weight:600;cursor:pointer}
+  .toggle button.on{border-color:var(--accent);color:var(--fg)}
+  .predict{width:100%;background:var(--accent);color:#0b0e14;border:0;border-radius:10px;padding:11px;font-weight:600;font-size:14px;cursor:pointer;margin-top:6px}
+  .verdict{text-align:center;margin-top:12px}
+  .badge{display:inline-block;padding:5px 14px;border-radius:999px;font-weight:700;font-size:13px}
+  .take{background:rgba(63,185,80,.15);color:var(--green)} .skip{background:rgba(248,81,73,.15);color:var(--red)}
+  footer{color:var(--muted);font-size:11px;text-align:center;margin-top:22px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="brand">Neural-net health<span>the learned trade validator</span></div></header>
+  <div class="sub">A pure-numpy MLP that scores P(win) for each candidate trade and vetoes the weak ones. This runs its forward pass live in your browser.</div>
+  <div class="nav"><a href="./">← Track record</a><a class="active" href="./nn.html">Neural-net health</a></div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <h2>Network</h2>
+    <p class="hint">Inputs → hidden (ReLU) → P(win). Edge colour = weight sign (<span style="color:var(--pos)">＋</span>/<span style="color:var(--neg)">－</span>), thickness = magnitude. Run a prediction below to light up activations.</p>
+    <div class="graph" id="graph"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Try it — predict in your browser</h2>
+      <p class="hint">Set the inputs and see what the network scores. No server: the maths runs on your device from the model's own weights.</p>
+      <div class="toggle"><button id="tl" class="on" onclick="setDir('long')">LONG</button><button id="ts" onclick="setDir('short')">SHORT</button></div>
+      <div class="sliders" id="sliders"></div>
+      <button class="predict" onclick="predict()">Predict P(win)</button>
+      <div class="verdict" id="verdict"></div>
+    </div>
+    <div class="card">
+      <h2>Feature influence</h2>
+      <p class="hint">Σ|first-layer weights| per input — a rough read of what the model leans on.</p>
+      <div class="fi" id="fi"></div>
+    </div>
+  </div>
+
+  <footer>Reads the same <span class="mono">trade_validator.json</span> the live agent trains & uses · updates when it retrains.<br><span id="stamp"></span></footer>
+</div>
+
+<script>
+const C={pos:'#2f7ff0',neg:'#f85149',muted:'#8b98ab',accent:'#4f9dff',green:'#3fb950',red:'#f85149',fg:'#e6edf3',border:'#232c3d',surface2:'#1a2130'};
+let M=null, DIR='long';
+
+function tiles(m){
+  const meta=m.meta||{};
+  const t=[
+    ['OOS AUC',(meta.oos_auc??'—'),meta.oos_auc>0.55?C.green:C.fg],
+    ['Win rate',meta.oos_base_win_rate!=null?`${Math.round(meta.oos_base_win_rate*100)}→${Math.round((meta.oos_gated_win_rate||0)*100)}%`:'—',C.fg],
+    ['Coverage',meta.oos_coverage!=null?Math.round(meta.oos_coverage*100)+'%':'—',C.fg],
+    ['Threshold',m.threshold!=null?m.threshold.toFixed(3):'—',C.fg],
+    ['Trades',meta.trades??meta.total??'—',C.fg],
+  ];
+  document.getElementById('tiles').innerHTML=t.map(([l,v,c])=>
+    `<div class="tile"><div class="v mono" style="color:${c}">${v}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function graph(m,act){
+  const W0=m.W[0], nin=W0.length, nh=W0[0].length; // in x hidden
+  const W1=m.W[1]; // hidden x 1
+  const width=Math.max(340, nin*4), H=340, padX=54, padR=34, top=16, bot=16;
+  const colX=[padX, width/2, width-padR];
+  const iy=i=>top+(H-top-bot)*(i/(nin-1||1));
+  const hy=i=>top+(H-top-bot)*(i/(nh-1||1));
+  const oy=(H)/2;
+  const maxW0=Math.max(...W0.flat().map(Math.abs))||1, maxW1=Math.max(...W1.flat().map(Math.abs))||1;
+  let e='';
+  for(let i=0;i<nin;i++)for(let h=0;h<nh;h++){const w=W0[i][h];if(Math.abs(w)<0.38*maxW0)continue;
+    e+=`<line x1="${colX[0]}" y1="${iy(i)}" x2="${colX[1]}" y2="${hy(h)}" stroke="${w>0?C.pos:C.neg}" stroke-width="${(Math.abs(w)/maxW0*1.6).toFixed(2)}" opacity="${(0.12+Math.abs(w)/maxW0*0.5).toFixed(2)}"/>`;}
+  for(let h=0;h<nh;h++){const w=W1[h][0];
+    e+=`<line x1="${colX[1]}" y1="${hy(h)}" x2="${colX[2]}" y2="${oy}" stroke="${w>0?C.pos:C.neg}" stroke-width="${(0.4+Math.abs(w)/maxW1*2).toFixed(2)}" opacity="${(0.2+Math.abs(w)/maxW1*0.6).toFixed(2)}"/>`;}
+  const node=(x,y,r,fill,stroke)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke||C.border}" stroke-width="1"/>`;
+  const tint=a=>a==null?C.surface2:`rgba(79,157,255,${Math.min(0.15+a*0.85,1).toFixed(2)})`;
+  let n='';
+  for(let i=0;i<nin;i++){n+=node(colX[0],iy(i),3.2,C.surface2);
+    n+=`<text x="${colX[0]-7}" y="${iy(i)+3}" text-anchor="end" fill="${C.muted}" font-size="8.5" font-family="monospace">${m.feature_names[i]}</text>`;}
+  for(let h=0;h<nh;h++) n+=node(colX[1],hy(h),4.5,tint(act?act[h]:null));
+  n+=node(colX[2],oy,7,tint(act?act.out:null),C.accent);
+  n+=`<text x="${colX[2]}" y="${oy-13}" text-anchor="middle" fill="${C.fg}" font-size="10" font-weight="600">P(win)</text>`;
+  if(act)n+=`<text x="${colX[2]}" y="${oy+3.5}" text-anchor="middle" fill="#0b0e14" font-size="7.5" font-weight="700" font-family="monospace">${act.out.toFixed(2)}</text>`;
+  document.getElementById('graph').innerHTML=`<svg width="${width}" height="${H}">${e}${n}</svg>`;
+}
+
+function featImportance(m){
+  const W0=m.W[0];
+  const imp=m.feature_names.map((f,i)=>[f,W0[i].reduce((s,w)=>s+Math.abs(w),0)]);
+  const mx=Math.max(...imp.map(x=>x[1]))||1;
+  imp.sort((a,b)=>b[1]-a[1]);
+  document.getElementById('fi').innerHTML=imp.map(([f,v])=>
+    `<div class="firow"><span style="color:var(--muted)">${f}</span><div class="fibar" style="width:${(v/mx*100).toFixed(0)}%"></div><span class="mono" style="text-align:right;color:var(--muted)">${v.toFixed(1)}</span></div>`).join('');
+}
+
+const RANGES={dir_long:[0,1,1],rsi_dist:[-1,1,.05],ema_sep:[-.1,.1,.005],price_vs_ema20:[-.1,.1,.005],price_vs_ema50:[-.1,.1,.005],price_vs_ema200:[-.15,.15,.005],atr_pct:[0,.08,.002],rule_confidence:[0,.95,.05],candle_net_score:[-1,1,.05],vol_surge:[-1,2,.05],turnover_spike:[-1,2,.05],vol_trend_ratio:[-1,1,.05],up_down_vol_pressure:[-1,1,.05]};
+function sliders(m){
+  document.getElementById('sliders').innerHTML=m.feature_names.map(f=>{
+    const [lo,hi,st]=RANGES[f]||[-1,1,.05];const def=f==='dir_long'?1:f==='rule_confidence'?0.5:0;
+    return `<div class="sl"><label>${f}<span class="val mono" id="v_${f}">${def}</span></label>
+      <input type="range" min="${lo}" max="${hi}" step="${st}" value="${def}" id="s_${f}" oninput="document.getElementById('v_${f}').textContent=this.value"/></div>`;}).join('');
+}
+function setDir(d){DIR=d;document.getElementById('tl').classList.toggle('on',d==='long');
+  document.getElementById('ts').classList.toggle('on',d==='short');
+  const s=document.getElementById('s_dir_long');if(s){s.value=d==='long'?1:0;document.getElementById('v_dir_long').textContent=s.value;}}
+
+function forward(m,x){
+  const z=x.map((v,i)=>(v-m.scaler_mean[i])/m.scaler_std[i]); // standardize
+  let a=z, acts=[];
+  for(let l=0;l<m.W.length;l++){
+    const Wl=m.W[l],bl=m.bias[l],out=[];
+    for(let j=0;j<Wl[0].length;j++){let s=bl[j];for(let i=0;i<Wl.length;i++)s+=a[i]*Wl[i][j];out.push(s);}
+    a = (l<m.W.length-1)? out.map(v=>Math.max(0,v)) : out; // relu hidden, linear before sigmoid
+    if(l<m.W.length-1)acts.push(a);
+  }
+  const p=1/(1+Math.exp(-Math.max(-30,Math.min(30,a[0]))));
+  return {p, hidden:acts[0]};
+}
+function predict(){
+  const x=M.feature_names.map(f=>parseFloat(document.getElementById('s_'+f).value));
+  const {p,hidden}=forward(M,x);
+  const hmax=Math.max(...hidden,1e-6), act=hidden.map(v=>v/hmax); act.out=p;
+  graph(M,act);
+  const take=p>=M.threshold;
+  document.getElementById('verdict').innerHTML=
+    `<div style="font-size:30px;font-weight:700" class="mono">${p.toFixed(3)}</div>
+     <div class="badge ${take?'take':'skip'}">${take?'TAKE':'SKIP'} · vs ${M.threshold.toFixed(3)}</div>`;
+}
+
+async function load(){
+  try{
+    const r=await fetch('nn.json?t='+Date.now(),{cache:'no-store'});M=await r.json();
+    if(!M.available){document.getElementById('tiles').innerHTML='<div style="grid-column:1/-1;color:var(--muted);padding:20px;text-align:center">No trained model published yet.</div>';return;}
+    tiles(M);graph(M,null);featImportance(M);sliders(M);setDir('long');
+    document.getElementById('stamp').textContent='model as of '+new Date(M.generated_at).toLocaleString('en-IN');
+  }catch(e){document.getElementById('tiles').innerHTML='<div style="grid-column:1/-1;color:var(--muted);padding:20px;text-align:center">Waiting for the model to publish…</div>';}
+}
+load();
+</script>
+</body>
+</html>

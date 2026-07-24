@@ -71,11 +71,14 @@ jobs:
             echo "not the weekly learning slot; skipping"
           fi
 
-      - name: Commit the updated journal and model
+      - name: Build the status site (GitHub Pages)
+        run: python -m app.status.build_site
+
+      - name: Commit the journal, model, and site data
         run: |
           git config user.name "amats-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data/journal.db app/ml/models/trade_validator.json
+          git add -f data/journal.db app/ml/models/trade_validator.json docs/data.json docs/nn.json
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
