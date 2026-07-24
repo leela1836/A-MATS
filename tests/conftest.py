@@ -51,6 +51,26 @@ def fake_market(monkeypatch):
     monkeypatch.setattr(market_collector, "_provider", FakeMarketProvider())
 
 
+@pytest.fixture(autouse=True)
+def fake_history(monkeypatch):
+    """Stub raw OHLCV so anything calling fetch_history directly (the feature
+    capture in scans, dataset builders) stays offline and deterministic."""
+    import numpy as np
+    import pandas as pd
+
+    def _hist(symbol, period="2y", interval="1d", **_kw):
+        n = 260
+        idx = pd.date_range("2024-01-01", periods=n, freq="D")
+        rng = np.random.default_rng(abs(hash(symbol)) % (2 ** 32))
+        close = 1000.0 + np.cumsum(rng.standard_normal(n))
+        return pd.DataFrame(
+            {"Open": close, "High": close + 2, "Low": close - 2,
+             "Close": close, "Volume": 1_000_000.0}, index=idx,
+        )
+
+    monkeypatch.setattr(market_collector, "fetch_history", _hist)
+
+
 class FakeNewsProvider:
     """Returns no articles, so graph tests never touch the network."""
 

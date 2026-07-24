@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     outcome       TEXT,                   -- win | loss | flat | none
     pnl_pct       REAL,
     screen_score  REAL,                   -- composite screen score (0..1)
-    screen_rank   INTEGER                 -- rank within the scan's shortlist
+    screen_rank   INTEGER,                -- rank within the scan's shortlist
+    features      TEXT                    -- JSON feature vector at entry (for learning)
 );
 CREATE TABLE IF NOT EXISTS equity (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,7 +83,8 @@ class Journal:
         """Add columns introduced after a DB was first created (SQLite has no
         'ADD COLUMN IF NOT EXISTS'), so an existing journal keeps working."""
         have = {r[1] for r in c.execute("PRAGMA table_info(decisions)").fetchall()}
-        for col, decl in (("screen_score", "REAL"), ("screen_rank", "INTEGER")):
+        for col, decl in (("screen_score", "REAL"), ("screen_rank", "INTEGER"),
+                          ("features", "TEXT")):
             if col not in have:
                 c.execute(f"ALTER TABLE decisions ADD COLUMN {col} {decl}")
 
@@ -119,6 +121,7 @@ class Journal:
             "outcome": "none" if fields.get("direction") in ("long", "short") else "flat",
             "screen_score": fields.get("screen_score"),
             "screen_rank": fields.get("screen_rank"),
+            "features": fields.get("features"),
         }
         placeholders = ",".join("?" for _ in cols)
         with self._conn() as c:
@@ -168,6 +171,17 @@ class Journal:
         params.append(limit)
         with self._conn() as c:
             return [dict(r) for r in c.execute(q, params).fetchall()]
+
+    def training_rows(self) -> list[dict[str, Any]]:
+        """Closed directional trades with a stored feature vector and a win/loss
+        outcome — the agent's own experience, ready to learn from."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT features, outcome, pnl_pct, ts FROM decisions "
+                "WHERE status='closed' AND direction IN ('long','short') "
+                "AND features IS NOT NULL AND outcome IN ('win','loss') ORDER BY ts"
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def equity_curve(self, limit: int = 500) -> list[dict[str, Any]]:
         with self._conn() as c:

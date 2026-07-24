@@ -51,13 +51,22 @@ jobs:
           SCAN_MODE: screen
         run: python -m app.journal.scan
 
-      - name: Commit the updated journal
+      - name: Learn from experience (weekly — Friday post-market)
+        run: |
+          if [ "${SCAN_SESSION}" = "post" ] && [ "$(date -u +%u)" = "5" ]; then
+            echo "retraining validator on accumulated journal + bootstrap"
+            python -m app.ml.learn || echo "learn skipped (not enough data yet)"
+          else
+            echo "not the weekly learning slot; skipping"
+          fi
+
+      - name: Commit the updated journal and model
         run: |
           git config user.name "amats-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data/journal.db
+          git add -f data/journal.db app/ml/models/trade_validator.json
           if git diff --cached --quiet; then
-            echo "no journal changes to commit"
+            echo "nothing to commit"
           else
             git commit -m "chore(journal): ${SCAN_SESSION} scan $(date -u +%FT%TZ) [skip ci]"
             git pull --rebase --autostash origin "${{ github.ref_name }}" || true

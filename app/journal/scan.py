@@ -22,10 +22,30 @@ from app.execution.paper_broker import get_broker
 from app.journal.store import Journal, get_journal
 from app.workflows.runner import run_cycle
 
+# Survival guard: if the paper account is down more than this from its start,
+# stop opening NEW positions (still resolve open ones and snapshot equity).
+# Keeps the book alive to learn another day instead of averaging into ruin.
+SURVIVAL_DD_LIMIT = 30.0
+
 
 def _watchlist() -> list[str]:
     syms = (get_config("market").get("symbols") or {}).get("equities") or []
     return [str(s).upper() for s in syms]
+
+
+def _features_json(symbol: str, direction: str) -> Optional[str]:
+    """Feature vector behind a directional call, stored so the agent can later
+    learn from how the trade turned out. Uses the cached history (fast)."""
+    if direction not in ("long", "short"):
+        return None
+    try:
+        import json
+        from app.collectors.market_collector import fetch_history
+        from app.ml.features import extract
+        df = fetch_history(symbol, period="2y")
+        return json.dumps([round(float(x), 6) for x in extract(df, direction)])
+    except Exception:
+        return None
 
 
 def _resolve_open(journal: Journal, prices: dict[str, float]) -> int:
@@ -105,6 +125,7 @@ def scan_watchlist(
                 "trend": ma.get("trend"),
                 "thesis": ra.get("thesis"),
                 "source": "llm" if src.startswith("llm") else "fallback",
+                "features": _features_json(sym, ra.get("direction") or dec.get("action") or "hold"),
             }))
 
     # Resolve prior open trades against the fresh prices BEFORE logging new ones,
@@ -156,6 +177,13 @@ def run_screen_scan(
     # symbol), so a name that dropped off the shortlist is still marked out.
     closed = _resolve_open(journal, prices)
 
+    # Survival guard: if the account is drawn down past the limit, open nothing
+    # new this scan — resolve and snapshot only, so the book lives to learn on.
+    dd = get_broker().snapshot(prices).get("return_percent", 0.0)
+    survival_halt = dd is not None and dd < -SURVIVAL_DD_LIMIT
+    if survival_halt:
+        candidates = []
+
     ctx = nullcontext() if use_llm else deterministic()
     with ctx:
         for rank, c in enumerate(candidates, start=1):
@@ -187,6 +215,7 @@ def run_screen_scan(
                 "source": "llm" if src.startswith("llm") else "fallback",
                 "screen_score": c.score,
                 "screen_rank": rank,
+                "features": _features_json(c.symbol, ra.get("direction") or dec.get("action") or "hold"),
             })
 
     snapshot = get_broker().snapshot(prices)
@@ -197,6 +226,7 @@ def run_screen_scan(
         "screened": len(prices),
         "shortlisted": len(candidates),
         "closed_this_scan": closed,
+        "survival_halt": survival_halt,
         "equity": snapshot.get("equity"),
         "used_llm": use_llm,
         "top": [c.as_dict() for c in candidates[:10]],

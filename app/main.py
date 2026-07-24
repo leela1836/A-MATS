@@ -177,6 +177,15 @@ def screen(top_n: int = 20, use_llm: bool = False) -> dict:
     return run_screen_scan(top_n=top_n, use_llm=use_llm)
 
 
+@app.post("/learn")
+def learn(bootstrap: bool = True) -> dict:
+    """Retrain the trade validator on the agent's own closed trades (blended
+    with backtest bootstrap early on), and save it as the live model."""
+    from app.ml.learn import learn as _learn
+
+    return _learn(bootstrap=bootstrap)
+
+
 @app.get("/journal/decisions")
 def journal_decisions(limit: int = 50, symbol: Optional[str] = None) -> dict:
     """Recent journaled decisions (newest first), optionally by symbol."""
