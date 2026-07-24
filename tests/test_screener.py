@@ -64,7 +64,7 @@ def test_screen_scan_journals_shortlist_with_scores(journal):
         universe=["RELIANCE.NS", "TCS.NS", "INFY.NS"], top_n=3, journal=journal,
     )
     assert summary["screened"] >= 1
-    assert summary["used_llm"] is False
+    assert summary["llm_reasoned"] == 0  # deterministic scan uses no LLM
     assert len(journal.equity_curve()) == 1
     rows = journal.recent_decisions()
     if rows:  # at least the directional survivors get journaled

@@ -154,6 +154,7 @@ def run_screen_scan(
     universe: Optional[list[str]] = None,
     top_n: int = 20,
     use_llm: bool = False,
+    llm_top: int = 0,
     session: Optional[str] = None,
     throttle_s: float = 0.0,
     journal: Optional[Journal] = None,
@@ -161,8 +162,12 @@ def run_screen_scan(
     """Screen the whole universe, then run the full pipeline on the shortlist.
 
     Stage 1: rank hundreds of symbols on the dependent signals (no LLM, no
-    orders). Stage 2: only the top `top_n` go through run_cycle for a reasoned
-    plan and a paper fill. This bounds cost no matter how big the universe is.
+    orders). Stage 2: the top `top_n` go through run_cycle for a reasoned plan
+    and a paper fill.
+
+    Quota-aware reasoning: the LLM actually reasons only on the top `llm_top`
+    finalists (a few calls per scan, within the free budget); the rest use the
+    deterministic path. `use_llm=True` forces the LLM for all finalists.
     """
     from app.journal.screener import screen_universe
 
@@ -184,39 +189,45 @@ def run_screen_scan(
     if survival_halt:
         candidates = []
 
-    ctx = nullcontext() if use_llm else deterministic()
-    with ctx:
-        for rank, c in enumerate(candidates, start=1):
-            try:
+    llm_used = 0
+    for rank, c in enumerate(candidates, start=1):
+        # Reason with the LLM only on the strongest few picks — real reasoning
+        # where it matters, within the daily quota; deterministic for the rest.
+        llm_this = use_llm or rank <= llm_top
+        ctx = nullcontext() if llm_this else deterministic()
+        try:
+            with ctx:
                 res = run_cycle(c.symbol, run_id=f"{scan_id}-{c.symbol.lower()}")
-            except Exception:
-                continue
-            ma = res.get("market_analysis") or {}
-            ra = res.get("reasoned_analysis") or {}
-            dec = res.get("decision") or {}
-            src = next(
-                (n.get("note", "") for n in (res.get("trace") or {}).get("nodes", [])
-                 if n.get("node") == "reasoning"), "",
-            )
-            journal.record_decision(scan_id, c.symbol, {
-                "direction": (ra.get("direction") or dec.get("action") or "hold"),
-                "signal": ma.get("signal"),
-                "confidence": ra.get("confidence"),
-                "entry_price": ra.get("entry_price"),
-                "stop_loss": ra.get("stop_loss"),
-                "take_profit": ra.get("take_profit"),
-                "risk_reward": ra.get("risk_reward"),
-                "est_hold_days": ra.get("est_hold_days"),
-                "nn_score": ma.get("nn_score"),
-                "support": ma.get("support"),
-                "resistance": ma.get("resistance"),
-                "trend": ma.get("trend"),
-                "thesis": ra.get("thesis"),
-                "source": "llm" if src.startswith("llm") else "fallback",
-                "screen_score": c.score,
-                "screen_rank": rank,
-                "features": _features_json(c.symbol, ra.get("direction") or dec.get("action") or "hold"),
-            })
+        except Exception:
+            continue
+        ma = res.get("market_analysis") or {}
+        ra = res.get("reasoned_analysis") or {}
+        dec = res.get("decision") or {}
+        src = next(
+            (n.get("note", "") for n in (res.get("trace") or {}).get("nodes", [])
+             if n.get("node") == "reasoning"), "",
+        )
+        if src.startswith("llm"):
+            llm_used += 1
+        journal.record_decision(scan_id, c.symbol, {
+            "direction": (ra.get("direction") or dec.get("action") or "hold"),
+            "signal": ma.get("signal"),
+            "confidence": ra.get("confidence"),
+            "entry_price": ra.get("entry_price"),
+            "stop_loss": ra.get("stop_loss"),
+            "take_profit": ra.get("take_profit"),
+            "risk_reward": ra.get("risk_reward"),
+            "est_hold_days": ra.get("est_hold_days"),
+            "nn_score": ma.get("nn_score"),
+            "support": ma.get("support"),
+            "resistance": ma.get("resistance"),
+            "trend": ma.get("trend"),
+            "thesis": ra.get("thesis"),
+            "source": "llm" if src.startswith("llm") else "fallback",
+            "screen_score": c.score,
+            "screen_rank": rank,
+            "features": _features_json(c.symbol, ra.get("direction") or dec.get("action") or "hold"),
+        })
 
     snapshot = get_broker().snapshot(prices)
     journal.record_equity(scan_id, snapshot)
@@ -228,7 +239,7 @@ def run_screen_scan(
         "closed_this_scan": closed,
         "survival_halt": survival_halt,
         "equity": snapshot.get("equity"),
-        "used_llm": use_llm,
+        "llm_reasoned": llm_used,
         "top": [c.as_dict() for c in candidates[:10]],
         "stats": journal.stats(),
     }
@@ -239,8 +250,9 @@ if __name__ == "__main__":
     import os
 
     sess = os.environ.get("SCAN_SESSION")
+    llm_top = int(os.environ.get("SCAN_LLM_TOP", "0"))  # LLM-reason the top-N picks
     if os.environ.get("SCAN_MODE", "screen") == "watchlist":
         summary = scan_watchlist(session=sess)
     else:
-        summary = run_screen_scan(session=sess)
+        summary = run_screen_scan(session=sess, llm_top=llm_top)
     print(json.dumps(summary, indent=2))

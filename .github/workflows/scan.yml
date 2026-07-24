@@ -46,9 +46,14 @@ jobs:
             *)               echo "SCAN_SESSION=manual" >> "$GITHUB_ENV" ;;
           esac
 
-      - name: Run screen scan (deterministic, no API keys)
+      - name: Run screen scan (deterministic screen; LLM reasons the top picks)
         env:
           SCAN_MODE: screen
+          # LLM-reason the strongest N picks per scan. 0 = fully deterministic
+          # (no key needed). Set >0 AND add GOOGLE_API_KEY as a repo secret to
+          # let the agent genuinely reason within the daily quota.
+          SCAN_LLM_TOP: "0"
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: python -m app.journal.scan
 
       - name: Learn from experience (weekly — Friday post-market)

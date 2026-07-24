@@ -168,13 +168,14 @@ def scan(use_llm: bool = False) -> dict:
 
 
 @app.post("/screen")
-def screen(top_n: int = 20, use_llm: bool = False) -> dict:
+def screen(top_n: int = 20, use_llm: bool = False, llm_top: int = 0) -> dict:
     """Screen the whole universe (configs/universe.txt) on the dependent signals,
     then run the full pipeline on the top_n survivors and journal them.
-    Deterministic by default (no LLM quota)."""
+    Deterministic by default; `llm_top` has the LLM reason on the strongest N
+    picks (quota-aware autonomous reasoning)."""
     from app.journal.scan import run_screen_scan
 
-    return run_screen_scan(top_n=top_n, use_llm=use_llm)
+    return run_screen_scan(top_n=top_n, use_llm=use_llm, llm_top=llm_top)
 
 
 @app.post("/learn")
