@@ -171,16 +171,74 @@ def _nn_score(df: pd.DataFrame, signal: Direction) -> Optional[float]:
         return None
 
 
-def fetch_history(symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
-    """Raw OHLCV history. Shared by the live provider and the backtester."""
+# On-disk OHLCV cache. Lives on the data drive (data/cache/, gitignored) so a
+# backtest/screen reads history from disk instead of re-downloading it from
+# Yahoo every run — much faster, and it sidesteps the rate-limiting that flakes
+# on universe-wide sweeps. A stale cache is also used as a fallback when a live
+# fetch fails, so a transient Yahoo error never sinks a run.
+from pathlib import Path
+
+CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "cache"
+CACHE_TTL_HOURS = 6.0  # daily bars only settle once a day; 6h is plenty fresh
+
+
+def _cache_path(symbol: str, period: str, interval: str) -> Path:
+    safe = "".join(ch if ch.isalnum() else "_" for ch in f"{symbol}_{period}_{interval}")
+    return CACHE_DIR / f"{safe}.pkl"
+
+
+def fetch_history(
+    symbol: str,
+    period: str = "2y",
+    interval: str = "1d",
+    use_cache: bool = True,
+    max_age_hours: float = CACHE_TTL_HOURS,
+) -> pd.DataFrame:
+    """Raw OHLCV history, disk-cached. Shared by the live provider and backtester.
+
+    Reads a fresh-enough cache when present; otherwise downloads, caches, and
+    returns. Pass `max_age_hours=0` to force a refresh, or `use_cache=False` to
+    bypass the cache entirely.
+    """
+    path = _cache_path(symbol, period, interval)
+
+    def _load_stale() -> Optional[pd.DataFrame]:
+        if use_cache and path.exists():
+            try:
+                return pd.read_pickle(path)
+            except Exception:
+                return None
+        return None
+
+    if use_cache and path.exists():
+        age_h = (time.time() - path.stat().st_mtime) / 3600.0
+        if age_h < max_age_hours:
+            cached = _load_stale()
+            if cached is not None and not cached.empty:
+                return cached
+
     import yfinance as yf
 
     try:
         df = yf.Ticker(symbol).history(period=period, interval=interval)
     except Exception as exc:
+        stale = _load_stale()  # transient Yahoo error → serve last good data
+        if stale is not None and not stale.empty:
+            return stale
         raise MarketDataError(f"fetch failed for {symbol}: {exc}") from exc
+
     if df is None or df.empty:
+        stale = _load_stale()
+        if stale is not None and not stale.empty:
+            return stale
         raise MarketDataError(f"no data for {symbol}")
+
+    if use_cache:
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            df.to_pickle(path)
+        except Exception:
+            pass  # a cache-write failure must never break the fetch
     return df
 
 

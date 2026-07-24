@@ -91,6 +91,31 @@ in-distribution, walk-forward exit tuning, or a universe/timeframe where trends
 persist (mid-caps, weekly). This is the most promising thread — pursue as
 *research*, validated on the whole universe, never on 6 names.
 
+**Update 2026-07-24 (later still) — three follow-ups; two dead ends, one live
+lead.** All universe-wide.
+- **#1 Retrain the NN on Weinstein entries (in-distribution): FAILED.** OOS AUC
+  **0.510** (coin-flip; the logistic baseline 0.535 edged it). The stack stays
+  ≈break-even either way (baseline-NN +0.06%, weinstein-NN +0.03%). Features
+  don't separate Weinstein winners from losers — retraining doesn't help.
+- **#2 Walk-forward the exit width: FAILED robustness.** The exit that looks
+  best in the older half is the WORST in the newer half (3/9 ATR: +0.28% H1 →
+  −1.00% H2; 2/6: −0.01% → −0.76%). Classic overfit / regime-dependence. No
+  exit width generalizes; daily Weinstein is not stable.
+- **#3 Weekly bars: the ONLY live lead.** On weekly, BOTH baseline (+19.9%) and
+  Weinstein (+16.8%) go positive, 41/48 symbols up. ⚠️ NOT yet trustworthy:
+  used `max` history (not 5y), NO buy-and-hold benchmark, survivorship. +20%
+  over ~20y ≈ 1%/yr and likely lags buy-and-hold. **Decisive next test: weekly
+  on a FAIR 5y window vs buy-and-hold.**
+
+**Conclusion: stop tuning the DAILY large-cap strategy — it tops out at
+break-even and every refinement fails or overfits. The signal was never the
+core problem; the TIMEFRAME is. Pursue weekly (and/or mid-caps) with a fair
+benchmark.**
+
+Infra: `fetch_history` now disk-caches OHLCV to `data/cache/` on the D drive —
+~40x faster on repeats and serves stale data when Yahoo rate-limits, so
+universe sweeps stop flaking.
+
 ---
 
 ## 2. Run it
