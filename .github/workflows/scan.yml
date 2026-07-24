@@ -58,7 +58,7 @@ jobs:
           UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
           # LLM-reason the strongest N picks per scan. 0 = fully deterministic.
           # Set >0 AND add GOOGLE_API_KEY as a repo secret to enable reasoning.
-          SCAN_LLM_TOP: "0"
+          SCAN_LLM_TOP: "5"
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: python -m app.journal.scan
 
