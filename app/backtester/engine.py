@@ -165,9 +165,14 @@ def run_backtest(
 
         # ── 3. Decide from bars up to and including i (never beyond) ──
         window = df.iloc[: i + 1]
+        ov = signal_overrides or {}
         try:
             ind = compute_indicators(window)
-            trend, signal, _ = classify(ind, signal_overrides)
+            if ov.get("strategy") == "weinstein":
+                from app.strategies.weinstein import weinstein_signal
+                trend, signal, _ = weinstein_signal(window, ov)
+            else:
+                trend, signal, _ = classify(ind, signal_overrides)
             # Same pattern gate the live provider applies, so backtest and
             # live cannot silently diverge.
             if (signal_overrides or {}).get("require_pattern_confirmation"):
@@ -186,7 +191,11 @@ def run_backtest(
             result.signals_seen += 1
         if position is None:
             if signal in (Direction.LONG, Direction.SHORT) and atr > 0 and i < len(df) - 1:
-                pending = (signal, 1.5 * atr, 3.0 * atr)
+                # ATR stop/target multipliers are overridable so a trend system
+                # can use a wider target ("let winners run") than a mean-revert one.
+                stop_mult = float(ov.get("stop_atr_mult", 1.5))
+                target_mult = float(ov.get("target_atr_mult", 3.0))
+                pending = (signal, stop_mult * atr, target_mult * atr)
         elif _flipped(position.direction, signal):
             # Signal reversed: exit at next open rather than wait for a stop.
             close = float(bar["Close"])
