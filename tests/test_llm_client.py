@@ -48,8 +48,10 @@ def test_unknown_model_uses_default_pricing():
 # model must fall through to the next rather than failing the cycle.
 
 def test_model_chain_starts_with_primary_then_fallbacks():
+    from app.config import get_config
+    primary = get_config("agent")["llm"]["model"]
     chain = client.model_chain()
-    assert chain[0] == "gemini-2.5-flash"
+    assert chain[0] == primary                 # config's primary leads
     assert len(chain) > 1, "a fallback chain is what multiplies the daily quota"
     assert len(chain) == len(set(chain)), "no duplicate models"
 
@@ -60,18 +62,19 @@ def test_explicit_model_overrides_primary():
 
 def test_rate_limited_model_falls_through_to_next(monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "k")
+    primary = client.model_chain()[0]
     seen = []
 
     def fake_gemini(key, model, *a, **k):
         seen.append(model)
-        if model == "gemini-2.5-flash":
+        if model == primary:
             raise client.ModelUnavailable(model, 429, "quota exhausted")
         return '{"ok": true}', 10, 5
 
     monkeypatch.setattr(client, "_gemini_call", fake_gemini)
     result = client.complete_json("sys", {"a": 1})
-    assert seen[0] == "gemini-2.5-flash"      # primary tried first
-    assert result.model != "gemini-2.5-flash"  # and fell through
+    assert seen[0] == primary       # primary tried first
+    assert result.model != primary  # and fell through to a fallback
     assert result.data == {"ok": True}
 
 

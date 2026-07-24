@@ -21,7 +21,10 @@ from app.config import get_config
 
 # USD per 1M tokens, (input, output). Approximate — update when pricing moves.
 _PRICING: dict[str, tuple[float, float]] = {
-    # Google
+    # Google — Lite models are the default (500/day free vs 20/day for Flash).
+    "gemini-3.5-flash-lite": (0.10, 0.40),
+    "gemini-3.1-flash-lite": (0.10, 0.40),
+    "gemini-flash-lite-latest": (0.10, 0.40),
     "gemini-2.5-flash": (0.30, 2.50),
     "gemini-2.5-flash-lite": (0.10, 0.40),
     "gemini-2.5-pro": (1.25, 10.00),
@@ -175,7 +178,7 @@ def model_chain(preferred: Optional[str] = None) -> list[str]:
     """Ordered models to try. Each Gemini model has its own daily quota, so
     chaining multiplies the effective free-tier budget."""
     llm_cfg = get_config("agent").get("llm", {})
-    primary = preferred or llm_cfg.get("model", "gemini-2.5-flash")
+    primary = preferred or llm_cfg.get("model", "gemini-3.5-flash-lite")
     chain = [primary]
     for m in llm_cfg.get("fallback_models", []) or []:
         if m and m not in chain:
@@ -196,9 +199,10 @@ def _gemini_call(
             "temperature": temperature,
             "responseMimeType": "application/json",
             "maxOutputTokens": max_tokens,
-            # Structured extraction needs no deliberation; keeps latency and
-            # token spend down. Raise if a task genuinely needs reasoning time.
-            "thinkingConfig": {"thinkingBudget": 0},
+            # NB: thinkingBudget:0 (used to disable deliberation on 2.5-flash)
+            # is REJECTED by the 3.x Flash-Lite models — they require -1 (dynamic)
+            # or a positive budget. Omit it; lite models barely think for JSON
+            # extraction anyway, so the default is already cheap.
         },
     }
     resp = httpx.post(

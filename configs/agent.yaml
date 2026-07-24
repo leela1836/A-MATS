@@ -9,15 +9,16 @@ llm:
   # provider's endpoint.
   # base_url:
   # Google reads GOOGLE_API_KEY; OpenAI reads OPENAI_API_KEY (both from .env).
-  # Free-tier AI Studio keys are capped at ~20 requests/DAY *per model*, so
-  # the chain below matters: when the primary is exhausted (HTTP 429) the
-  # client falls through to the next model, which has its own quota. Three
-  # models ~= 60 requests/day instead of 20.
-  # Note: gemini-2.5-pro and the 2.0-* models 429 without a paid plan.
-  model: gemini-2.5-flash
+  # QUOTA: regular Flash models (gemini-2.5-flash / 3.x-flash) are capped at only
+  # ~20 requests/DAY on the free tier — a single universe scan (news + reasoning
+  # per finalist) blows that. The Flash-LITE models have 500/day free, which
+  # comfortably covers autonomous operation. So default to a Lite model; the
+  # chain adds a second Lite with its own 500/day quota as backup.
+  # Note: gemini-2.5-flash-lite is retired (404); use the 3.x lites.
+  model: gemini-3.5-flash-lite
   fallback_models:
-    - gemini-3.5-flash        # newer; separate 20/day quota
-    - gemini-2.5-flash-lite   # retired for new keys, but free if yours has it
+    - gemini-3.1-flash-lite      # separate 500/day quota
+    - gemini-flash-lite-latest   # alias to the newest lite, another buffer
   temperature: 0.2
   max_tokens: 4096
   timeout_seconds: 60
@@ -39,7 +40,7 @@ llm:
 # ─── Supervisor Agent ───
 supervisor:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.1
   max_iterations: 10
   timeout_seconds: 120
@@ -50,7 +51,7 @@ supervisor:
 # ─── Market Agent ───
 market_agent:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   data_refresh_interval_seconds: 300
@@ -61,7 +62,7 @@ market_agent:
 # ─── News Agent ───
 news_agent:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   sources:
@@ -76,7 +77,7 @@ news_agent:
 # ─── Knowledge Agent ───
 knowledge_agent:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.3
   prompt_version: v1
   max_results: 5
@@ -89,7 +90,7 @@ knowledge_agent:
 # ─── Memory Agent ───
 memory_agent:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.2
   prompt_version: v1
   short_term_ttl_minutes: 60
@@ -99,7 +100,7 @@ memory_agent:
 # ─── Reasoning Engine ───
 reasoning_engine:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.2
   prompt_version: v1
   reasoning_depth: detailed  # Options: quick, balanced, detailed
@@ -109,7 +110,7 @@ reasoning_engine:
 # ─── Evaluation Engine ───
 evaluation_engine:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   scoring_method: weighted  # Options: simple, weighted, ensemble
@@ -124,7 +125,7 @@ evaluation_engine:
 # ─── Risk Engine ───
 risk_engine:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   risk_assessment_depth: standard  # Options: quick, standard, thorough
@@ -133,7 +134,7 @@ risk_engine:
 # ─── Decision Engine ───
 decision_engine:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.1
   prompt_version: v1
   min_approval_threshold: 0.7
@@ -143,7 +144,7 @@ decision_engine:
 # ─── Reflection Engine ───
 reflection_engine:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.3
   prompt_version: v1
   reflection_frequency: per_trade  # Options: per_trade, daily, weekly
@@ -153,7 +154,7 @@ reflection_engine:
 # ─── Learning Engine ───
 learning_engine:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   temperature: 0.3
   prompt_version: v1
   consolidation_interval_hours: 24
