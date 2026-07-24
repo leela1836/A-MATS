@@ -43,6 +43,54 @@ evidence is the per-trade lift (win 36%→40%, mean ret +0.10→+0.67 per trade)
 Bottom line unchanged: filters stop the worst bleeding, they do not create a
 profitable edge.
 
+**Update 2026-07-24 (later) — Weinstein Stage Analysis: a lead that did NOT
+survive validation. READ THIS BEFORE RE-CHASING IT.** A mechanical
+trend-following system (`app/strategies/weinstein.py`): buy Stage-2 breakouts
+above the base on expanding volume above a rising 150-day MA, let winners run.
+
+On **six** large-caps it looked like a breakthrough — the first *positive* arm:
+| arm (6 symbols, 5y) | mean/symbol | trades |
+|---|---|---|
+| baseline EMA/RSI | −3.21% | 339 |
+| weinstein (let run 2/6 ATR) | **+0.36%** | 74 |
+
+Then validated on the **full 49-symbol universe** — and the edge evaporated:
+| arm (49 symbols, 5y) | mean/symbol | trades | positive |
+|---|---|---|---|
+| baseline EMA/RSI | −1.32% | 2638 | 17/49 |
+| weinstein (2/6) | **−0.66%** | 587 | 21/49 |
+| weinstein 1st half | −0.01% | 246 | 25/49 |
+| weinstein 2nd half | −0.76% | 216 | 10/49 |
+
+⚠️ **Lesson (do not forget): a 6-symbol backtest is NOISE.** The +0.36% was
+selection luck — those six happened to hold Weinstein's winners. At scale it is
+−0.66% (better than baseline by only +0.66pp), **not** positive, and unstable
+across time (okay-ish first half, worse second half). Zero symbols reach the
+20-trade meaningfulness bar. What is *genuinely* true: Weinstein is a better,
+far more efficient base than EMA/RSI (+0.66pp, 21 vs 17 positive, one-fifth the
+trades) — quality up, but still not an edge. **Always validate on the whole
+universe, never on a handful.** The universe screener (`app/journal/screener.py`)
+exists partly for this.
+
+**BUT — stacking the filters on Weinstein reaches ≈break-even at universe scale
+(the best broad result yet).** Weinstein + NN + candlestick gates, 46-symbol
+universe / 5y:
+| arm | mean/symbol | trades |
+|---|---|---|
+| weinstein alone | −0.60% | 553 |
+| + NN gate | −0.15% | 279 |
+| + candlestick gate | −0.27% | 186 |
+| **+ both** | **−0.009%** | 97 |
+
+From baseline −1.32% to **−0.01%** (≈flat) is ~+1.3pp — losses almost fully
+eliminated at scale. STILL NOT POSITIVE, and thin (~2 trades/symbol; 97 pooled).
+Before trusting: (a) the NN was trained on BASELINE entries, so gating Weinstein
+with it is out-of-distribution — **retrain the NN on Weinstein trades**; (b) no
+walk-forward on the exit width. Honest levers to cross zero: NN retrained
+in-distribution, walk-forward exit tuning, or a universe/timeframe where trends
+persist (mid-caps, weekly). This is the most promising thread — pursue as
+*research*, validated on the whole universe, never on 6 names.
+
 ---
 
 ## 2. Run it
