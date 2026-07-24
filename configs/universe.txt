@@ -1,0 +1,57 @@
+# A-MATS screening universe — one Yahoo NSE ticker per line (.NS suffix).
+# Lines starting with # and blank lines are ignored.
+#
+# This is a STARTER set of liquid NSE large/mid caps. To screen hundreds,
+# paste the NIFTY 200 / NIFTY 500 constituents here (NSE publishes the list
+# as a CSV — append each symbol with a .NS suffix). The screener skips any
+# ticker Yahoo can't resolve, so an over-long list degrades gracefully.
+RELIANCE.NS
+TCS.NS
+HDFCBANK.NS
+INFY.NS
+ICICIBANK.NS
+SBIN.NS
+BHARTIARTL.NS
+ITC.NS
+LT.NS
+HINDUNILVR.NS
+KOTAKBANK.NS
+AXISBANK.NS
+BAJFINANCE.NS
+BAJAJFINSV.NS
+ASIANPAINT.NS
+MARUTI.NS
+TITAN.NS
+SUNPHARMA.NS
+NESTLEIND.NS
+ULTRACEMCO.NS
+WIPRO.NS
+HCLTECH.NS
+TECHM.NS
+POWERGRID.NS
+NTPC.NS
+ONGC.NS
+COALINDIA.NS
+TATAMOTORS.NS
+TATASTEEL.NS
+JSWSTEEL.NS
+HINDALCO.NS
+ADANIENT.NS
+ADANIPORTS.NS
+GRASIM.NS
+DRREDDY.NS
+CIPLA.NS
+BRITANNIA.NS
+EICHERMOT.NS
+HEROMOTOCO.NS
+M&M.NS
+SBILIFE.NS
+HDFCLIFE.NS
+BPCL.NS
+INDUSINDBK.NS
+TATACONSUM.NS
+APOLLOHOSP.NS
+PIDILITIND.NS
+DABUR.NS
+GAIL.NS
+VEDL.NS

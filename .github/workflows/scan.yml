@@ -1,0 +1,65 @@
+name: A-MATS market scan
+
+# Runs on GitHub's servers — independent of your laptop. Two scheduled sweeps a
+# day plus a manual button. The scan is DETERMINISTIC (no LLM), so it needs NO
+# secrets: no Gemini/OpenAI key, no rotation risk. Only market data (yfinance).
+#
+# GitHub cron is UTC. NSE trades ~09:15-15:30 IST (UTC+5:30):
+#   03:15 UTC = 08:45 IST  → pre-open plan
+#   10:15 UTC = 15:45 IST  → post-close resolution
+# Note: scheduled workflows can be delayed a few minutes under GitHub load, and
+# cron does not know NSE holidays — a holiday scan just journals "market closed"
+# with no fills, which the market-calendar guard handles.
+
+on:
+  schedule:
+    - cron: "15 3 * * 1-5"    # pre-market  (Mon-Fri)
+    - cron: "15 10 * * 1-5"   # post-market (Mon-Fri)
+  workflow_dispatch:           # manual "Run workflow" button
+
+permissions:
+  contents: write              # to commit the updated journal back
+
+concurrency:
+  group: amats-scan
+  cancel-in-progress: false    # never interrupt a scan mid-write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Label the session (pre / post / manual)
+        run: |
+          case "${{ github.event.schedule }}" in
+            "15 3 * * 1-5")  echo "SCAN_SESSION=pre"  >> "$GITHUB_ENV" ;;
+            "15 10 * * 1-5") echo "SCAN_SESSION=post" >> "$GITHUB_ENV" ;;
+            *)               echo "SCAN_SESSION=manual" >> "$GITHUB_ENV" ;;
+          esac
+
+      - name: Run screen scan (deterministic, no API keys)
+        env:
+          SCAN_MODE: screen
+        run: python -m app.journal.scan
+
+      - name: Commit the updated journal
+        run: |
+          git config user.name "amats-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/journal.db
+          if git diff --cached --quiet; then
+            echo "no journal changes to commit"
+          else
+            git commit -m "chore(journal): ${SCAN_SESSION} scan $(date -u +%FT%TZ) [skip ci]"
+            git pull --rebase --autostash origin "${{ github.ref_name }}" || true
+            git push
+          fi

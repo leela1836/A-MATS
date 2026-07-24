@@ -38,6 +38,9 @@ class MarketAnalysis(BaseModel):
     pattern_score: float = 0.0
     # Learned validator's P(win) for the proposed entry (None if untrained).
     nn_score: Optional[float] = None
+    # Nearest support (below) and resistance (above) the current price.
+    support: Optional[float] = None
+    resistance: Optional[float] = None
 
 
 class NewsArticleRef(BaseModel):

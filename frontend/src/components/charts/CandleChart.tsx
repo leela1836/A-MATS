@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Candle } from "@/lib/api";
+import type { Candle, SRLevel } from "@/lib/api";
 import { C, inr, ticks, useMeasure } from "./chart-kit";
 
 export interface Levels {
@@ -16,10 +16,12 @@ const VOL_H = 34; // volume strip height at the bottom of the price area
 export function CandleChart({
   candles,
   levels,
+  sr,
   height = 340,
 }: {
   candles: Candle[];
   levels?: Levels;
+  sr?: SRLevel[];
   height?: number;
 }) {
   const [ref, width] = useMeasure<HTMLDivElement>();
@@ -103,6 +105,30 @@ export function CandleChart({
             opacity={0.22}
           />
         ))}
+
+        {/* support / resistance zones (only those inside the visible range) */}
+        {(sr ?? [])
+          .filter((l) => l.price >= lo && l.price <= hi)
+          .map((l, i) => {
+            const col = l.kind === "support" ? "#3fb9a0" : "#e0996a";
+            return (
+              <g key={`sr${i}`}>
+                <line
+                  x1={PAD.left}
+                  x2={PAD.left + plotW}
+                  y1={y(l.price)}
+                  y2={y(l.price)}
+                  stroke={col}
+                  strokeWidth={1}
+                  opacity={Math.min(0.3 + l.strength * 0.18, 0.75)}
+                />
+                <text x={PAD.left + 2} y={y(l.price) - 2.5} fill={col} fontSize={9} fontFamily="var(--font-mono)" opacity={0.85}>
+                  {l.kind === "support" ? "S" : "R"} {l.price.toFixed(0)}
+                  {l.strength > 1 ? ` ·${l.strength}` : ""}
+                </text>
+              </g>
+            );
+          })}
 
         {/* EMA overlays */}
         <path d={line("ema200")} fill="none" stroke={C.ema200} strokeWidth={1.75} opacity={0.9} />

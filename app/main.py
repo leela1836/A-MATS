@@ -6,6 +6,8 @@ dashboard has real data to render from day one.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -41,10 +43,17 @@ def configs() -> dict:
     return all_configs()
 
 
+def _norm_symbol(symbol: str) -> str:
+    """Normalise a user-typed ticker. Yahoo tickers never contain spaces, so a
+    'NTPC GREEN.NS' is a typo for 'NTPCGREEN.NS' — strip whitespace and upper-case."""
+    return "".join(symbol.split()).upper()
+
+
 @app.post("/run/{symbol}")
 def run(symbol: str) -> dict:
     """Run one trading cycle through the graph for a single symbol."""
-    return run_cycle(symbol.upper(), run_id=f"api-{symbol.lower()}")
+    sym = _norm_symbol(symbol)
+    return run_cycle(sym, run_id=f"api-{sym.lower()}")
 
 
 @app.get("/market/status")
@@ -68,7 +77,7 @@ def backtest(symbol: str, period: str = "2y", include_trades: bool = True) -> di
     from app.backtester.engine import run_backtest
 
     try:
-        result = run_backtest(symbol.upper(), period=period)
+        result = run_backtest(_norm_symbol(symbol), period=period)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -94,10 +103,19 @@ def candles(symbol: str, period: str = "1y", bars: int = 130) -> dict:
         _ema, classify, compute_indicators, fetch_history,
     )
     from app.strategies.candlesticks import detect
+    from app.strategies.support_resistance import summarise as sr_summarise
 
-    df = fetch_history(symbol.upper(), period=period)
+    sym = _norm_symbol(symbol)
+    try:
+        df = fetch_history(sym, period=period)
+    except Exception as exc:
+        # A bad/unknown ticker makes yfinance raise; surface a clean 502, not a 500.
+        raise HTTPException(status_code=502, detail=f"could not fetch data for {sym}: {exc}")
     if df is None or df.empty or len(df) < 60:
-        raise HTTPException(status_code=400, detail=f"insufficient history for {symbol}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"no usable history for {sym} — check the ticker (e.g. NTPCGREEN.NS, not 'NTPC GREEN.NS')",
+        )
 
     close = df["Close"]
     ema20, ema50, ema200 = _ema(close, 20), _ema(close, 50), _ema(close, 200)
@@ -125,7 +143,55 @@ def candles(symbol: str, period: str = "1y", bars: int = 130) -> dict:
             "pattern": top.name if top else None,
             "pattern_dir": top.direction if top else None,
         })
-    return {"symbol": symbol.upper(), "period": period, "bars": out}
+    # Support/resistance computed on the FULL fetched history for stability,
+    # then drawn across the visible window.
+    sr = sr_summarise(df)
+    return {
+        "symbol": sym, "period": period, "bars": out,
+        "levels": sr["levels"],
+        "support": sr["support"],
+        "resistance": sr["resistance"],
+    }
+
+
+@app.post("/scan")
+def scan(use_llm: bool = False) -> dict:
+    """Run one autonomous sweep of the watchlist and journal it.
+
+    Deterministic by default (zero LLM quota). Pass use_llm=true to spend the
+    free budget deliberately. This is the heartbeat — schedule it to build a
+    real track record over time.
+    """
+    from app.journal.scan import scan_watchlist
+
+    return scan_watchlist(use_llm=use_llm)
+
+
+@app.post("/screen")
+def screen(top_n: int = 20, use_llm: bool = False) -> dict:
+    """Screen the whole universe (configs/universe.txt) on the dependent signals,
+    then run the full pipeline on the top_n survivors and journal them.
+    Deterministic by default (no LLM quota)."""
+    from app.journal.scan import run_screen_scan
+
+    return run_screen_scan(top_n=top_n, use_llm=use_llm)
+
+
+@app.get("/journal/decisions")
+def journal_decisions(limit: int = 50, symbol: Optional[str] = None) -> dict:
+    """Recent journaled decisions (newest first), optionally by symbol."""
+    from app.journal.store import get_journal
+
+    return {"decisions": get_journal().recent_decisions(limit=limit, symbol=symbol)}
+
+
+@app.get("/journal/equity")
+def journal_equity(limit: int = 500) -> dict:
+    """The accumulated equity curve plus a track-record summary."""
+    from app.journal.store import get_journal
+
+    j = get_journal()
+    return {"equity_curve": j.equity_curve(limit=limit), "stats": j.stats()}
 
 
 @app.get("/portfolio")

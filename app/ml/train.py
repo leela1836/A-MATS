@@ -28,6 +28,19 @@ MODEL_PATH = Path(__file__).parent / "models" / "trade_validator.json"
 
 COVERAGE_FLOOR = 0.30  # a gate that takes <30% of trades is too sparse to trust
 
+# Hidden-layer widths. [16] is ONE hidden layer; [24, 12] is two, etc. Deeper
+# nets have more parameters and, on a ~340-trade dataset, tend to OVERFIT and
+# lose out-of-sample AUC. Do not raise this on a hunch — run `sweep` first and
+# only adopt a depth that actually improves the OOS number.
+HIDDEN_LAYERS = [16]
+
+# Architectures compared by `sweep`, from shallow to deep.
+SWEEP_ARCHS: list[list[int]] = [[8], [16], [24, 12], [32, 16], [24, 12, 6]]
+
+
+def _param_count(layer_sizes: list[int]) -> int:
+    return sum(a * b + b for a, b in zip(layer_sizes[:-1], layer_sizes[1:]))
+
 
 @dataclass
 class Eval:
@@ -68,33 +81,48 @@ def _evaluate(scores: np.ndarray, ds: Dataset, thr: float) -> Eval:
     )
 
 
-def train() -> dict:
-    print(f"Building dataset from {SYMBOLS} over {PERIOD} ...")
-    ds = build_dataset(SYMBOLS, period=PERIOD)
-    print(f"  {len(ds)} trades, base win rate {ds.y.mean():.1%}")
-    if len(ds) < 60:
-        raise SystemExit("too few trades to train a validator honestly")
-
+def _fit_and_eval(ds: Dataset, hidden: list[int], seed: int = 7) -> dict:
+    """Train an MLP with the given hidden layers on the temporal splits of `ds`,
+    plus the logistic baseline, and evaluate both out-of-sample. Pure function of
+    (ds, hidden) — used by both `train` and `sweep` so they can never disagree."""
     train_ds, test_ds = temporal_split(ds, train_frac=0.7)
-    # Inner temporal split of TRAIN for early stopping.
-    fit_ds, val_ds = temporal_split(train_ds, train_frac=0.8)
-    print(f"  fit={len(fit_ds)}  val={len(val_ds)}  test={len(test_ds)} (temporal)")
+    fit_ds, val_ds = temporal_split(train_ds, train_frac=0.8)  # inner split for early stopping
 
     scaler = StandardScaler().fit(fit_ds.X)
     Xf, Xv, Xt = (scaler.transform(d.X) for d in (fit_ds, val_ds, test_ds))
     Xtrain = scaler.transform(train_ds.X)
     n_feat = ds.X.shape[1]
 
-    mlp = MLP([n_feat, 16, 1], l2=3e-3, lr=0.01, seed=7)
+    mlp = MLP([n_feat, *hidden, 1], l2=3e-3, lr=0.01, seed=seed)
     mlp.fit(Xf, fit_ds.y, epochs=800, X_val=Xv, y_val=val_ds.y, patience=60)
 
-    logistic = MLP([n_feat, 1], l2=3e-3, lr=0.05, seed=7)
+    logistic = MLP([n_feat, 1], l2=3e-3, lr=0.05, seed=seed)
     logistic.fit(Xf, fit_ds.y, epochs=800, X_val=Xv, y_val=val_ds.y, patience=60)
 
     thr = _pick_threshold(mlp.predict_proba(Xtrain), train_ds.returns)
+    return {
+        "mlp": mlp, "scaler": scaler, "thr": thr,
+        "mlp_eval": _evaluate(mlp.predict_proba(Xt), test_ds, thr),
+        "log_eval": _evaluate(logistic.predict_proba(Xt), test_ds, thr),
+        "splits": (len(fit_ds), len(val_ds), len(test_ds)),
+    }
 
-    mlp_eval = _evaluate(mlp.predict_proba(Xt), test_ds, thr)
-    log_eval = _evaluate(logistic.predict_proba(Xt), test_ds, thr)
+
+def train(hidden: list[int] | None = None) -> dict:
+    hidden = hidden if hidden is not None else HIDDEN_LAYERS
+    print(f"Building dataset from {SYMBOLS} over {PERIOD} ...")
+    ds = build_dataset(SYMBOLS, period=PERIOD)
+    print(f"  {len(ds)} trades, base win rate {ds.y.mean():.1%}")
+    if len(ds) < 60:
+        raise SystemExit("too few trades to train a validator honestly")
+
+    layer_sizes = [ds.X.shape[1], *hidden, 1]
+    print(f"  architecture {layer_sizes}  ({_param_count(layer_sizes)} params)")
+
+    res = _fit_and_eval(ds, hidden)
+    mlp, scaler, thr = res["mlp"], res["scaler"], res["thr"]
+    mlp_eval, log_eval = res["mlp_eval"], res["log_eval"]
+    print(f"  fit={res['splits'][0]}  val={res['splits'][1]}  test={res['splits'][2]} (temporal)")
 
     print("\n=== OUT-OF-SAMPLE (test = newest 30% of trades) ===")
     print(f"  base win rate (take everything) : {mlp_eval.base_win_rate:.1%}")
@@ -118,6 +146,8 @@ def train() -> dict:
         MODEL_PATH, mlp, scaler, ds.feature_names, thr,
         meta={
             "symbols": SYMBOLS, "period": PERIOD, "trades": len(ds),
+            "hidden_layers": hidden,
+            "params": _param_count(layer_sizes),
             "oos_auc": round(mlp_eval.auc, 4),
             "oos_base_win_rate": round(mlp_eval.base_win_rate, 4),
             "oos_gated_win_rate": round(mlp_eval.taken_win_rate, 4),
@@ -129,5 +159,44 @@ def train() -> dict:
     return {"mlp": mlp_eval, "logistic": log_eval}
 
 
+def sweep(archs: list[list[int]] | None = None) -> list[dict]:
+    """Compare hidden-layer depths on the SAME data/splits and report OOS AUC.
+
+    The honest way to answer 'should we add layers?': train each candidate,
+    read the out-of-sample number, and let it decide. On a small dataset the
+    usual outcome is that depth raises train fit but *lowers* OOS AUC.
+    """
+    archs = archs if archs is not None else SWEEP_ARCHS
+    print(f"Building dataset from {SYMBOLS} over {PERIOD} ...")
+    ds = build_dataset(SYMBOLS, period=PERIOD)
+    print(f"  {len(ds)} trades, base win rate {ds.y.mean():.1%}\n")
+    if len(ds) < 60:
+        raise SystemExit("too few trades to sweep honestly")
+
+    n_feat = ds.X.shape[1]
+    print(f"{'hidden layers':<18}{'params':>8}{'OOS AUC':>10}{'gated win':>12}{'coverage':>11}")
+    print("-" * 59)
+    rows = []
+    for h in archs:
+        res = _fit_and_eval(ds, h)
+        e = res["mlp_eval"]
+        params = _param_count([n_feat, *h, 1])
+        rows.append({"hidden": h, "params": params, "eval": e})
+        print(f"{str(h):<18}{params:>8}{e.auc:>10.3f}{e.taken_win_rate:>11.1%}{e.coverage:>11.1%}")
+
+    best = max(rows, key=lambda r: r["eval"].auc)
+    print("-" * 59)
+    print(f"\n  Best OOS AUC: hidden={best['hidden']} (AUC {best['eval'].auc:.3f}).")
+    print("  NOTE: pick the SIMPLEST architecture within noise of the best — a")
+    print("  0.01 AUC gain from 3x the parameters is overfitting, not skill.")
+    print(f"  To adopt one, set HIDDEN_LAYERS in train.py and run `train`.")
+    return rows
+
+
 if __name__ == "__main__":
-    train()
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "sweep":
+        sweep()
+    else:
+        train()

@@ -12,6 +12,7 @@ import {
   runCycle,
   type BacktestResponse,
   type Candle,
+  type SRLevel,
   type PaperTrade,
   type Portfolio,
   type RunResult,
@@ -32,6 +33,11 @@ export function Dashboard() {
   const [symbol, setSymbol] = useState("RELIANCE.NS");
   const [result, setResult] = useState<RunResult | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
+  const [sr, setSr] = useState<{ levels: SRLevel[]; support: number | null; resistance: number | null }>({
+    levels: [],
+    support: null,
+    resistance: null,
+  });
   const [backtest, setBacktest] = useState<BacktestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingBt, setLoadingBt] = useState(false);
@@ -55,8 +61,13 @@ export function Dashboard() {
     try {
       const c = await getCandles(sym);
       setCandles(c.bars);
-    } catch {
+      setSr({ levels: c.levels, support: c.support, resistance: c.resistance });
+      return true;
+    } catch (e) {
       setCandles([]);
+      setSr({ levels: [], support: null, resistance: null });
+      setError(e instanceof Error ? e.message : `Could not load price data for ${sym}`);
+      return false;
     }
   }, []);
 
@@ -89,7 +100,9 @@ export function Dashboard() {
   }, [refreshPortfolio, loadCandles]);
 
   const run = async () => {
-    const sym = symbol.trim().toUpperCase();
+    // Yahoo tickers have no spaces: "NTPC GREEN.NS" is a typo for "NTPCGREEN.NS".
+    const sym = symbol.replace(/\s+/g, "").toUpperCase();
+    if (sym !== symbol) setSymbol(sym);
     setLoading(true);
     setError(null);
     try {
@@ -210,10 +223,19 @@ export function Dashboard() {
                 </span>
               )}
             </div>
-            <span className="text-[11px] text-muted font-mono">{candles.length} bars · daily</span>
+            <div className="flex items-center gap-3 text-[11px] font-mono">
+              {sr.support !== null && (
+                <span style={{ color: "#3fb9a0" }}>S {sr.support.toFixed(2)}</span>
+              )}
+              {sr.resistance !== null && (
+                <span style={{ color: "#e0996a" }}>R {sr.resistance.toFixed(2)}</span>
+              )}
+              <span className="text-muted">{candles.length} bars · daily</span>
+            </div>
           </div>
           <CandleChart
             candles={candles}
+            sr={sr.levels}
             levels={
               r?.reasoned_analysis
                 ? {
@@ -324,6 +346,8 @@ function StageDetail({ selected, r }: { selected: string; r: RunResult | null })
             <Field label="trend / signal" value={`${r.market_analysis.trend} / ${r.market_analysis.signal}`} />
             <Field label="confidence" value={fmt(r.market_analysis.confidence)} />
             <Field label="nn P(win)" value={r.market_analysis.nn_score === null ? "—" : fmt(r.market_analysis.nn_score)} />
+            <Field label="support" value={r.market_analysis.support === null ? "—" : fmt(r.market_analysis.support)} />
+            <Field label="resistance" value={r.market_analysis.resistance === null ? "—" : fmt(r.market_analysis.resistance)} />
             {Object.entries(r.market_analysis.indicators).map(([k, v]) => (
               <Field key={k} label={k} value={v === null ? "—" : fmt(v)} />
             ))}

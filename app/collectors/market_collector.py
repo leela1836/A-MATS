@@ -225,6 +225,9 @@ class YFinanceProvider:
         summary = summarise(patterns)
         signal = apply_pattern_filter(signal, patterns)
 
+        from app.strategies.support_resistance import summarise as sr_summarise
+        sr = sr_summarise(df)
+
         # Learned validator: score the (pre-gate) proposal for the LLM to weigh,
         # then optionally gate on it. Scoring never blocks if no model exists.
         params = signal_params()
@@ -250,6 +253,8 @@ class YFinanceProvider:
             pattern_bias=summary["net_bias"],
             pattern_score=summary["net_score"],
             nn_score=nn_score,
+            support=sr["support"],
+            resistance=sr["resistance"],
         )
 
 

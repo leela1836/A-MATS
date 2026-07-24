@@ -1,0 +1,216 @@
+"""Autonomous watchlist scan — the system's heartbeat.
+
+One call sweeps the whole watchlist through the SAME pipeline the dashboard
+uses, records every decision to the journal, resolves any prior open trades
+against the fresh prices, and snapshots equity. Run it on a schedule and the
+project stops being a thing you poke and starts being a system with a track
+record.
+
+Reasoning defaults to the DETERMINISTIC path so a full sweep costs zero LLM
+quota — the free budget cannot survive scanning ten symbols with the model.
+Pass use_llm=True to spend quota deliberately on a small watchlist.
+"""
+from __future__ import annotations
+
+from contextlib import nullcontext
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from app.agents.reasoning import deterministic
+from app.config import get_config
+from app.execution.paper_broker import get_broker
+from app.journal.store import Journal, get_journal
+from app.workflows.runner import run_cycle
+
+
+def _watchlist() -> list[str]:
+    syms = (get_config("market").get("symbols") or {}).get("equities") or []
+    return [str(s).upper() for s in syms]
+
+
+def _resolve_open(journal: Journal, prices: dict[str, float]) -> int:
+    """Close any open decision whose stop or target the latest price has hit.
+
+    Uses only the price we just observed — no lookahead, no second fetch. A
+    decision with no fresh price for its symbol simply stays open.
+    """
+    closed = 0
+    for d in journal.open_decisions():
+        px = prices.get(d["symbol"])
+        entry, stop, take = d.get("entry_price"), d.get("stop_loss"), d.get("take_profit")
+        if px is None or entry in (None, 0) or stop is None or take is None:
+            continue
+        long = d["direction"] == "long"
+        hit_stop = px <= stop if long else px >= stop
+        hit_take = px >= take if long else px <= take
+        if not (hit_stop or hit_take):
+            continue
+        pnl_pct = ((px - entry) / entry * 100.0) * (1 if long else -1)
+        outcome = "win" if hit_take and not hit_stop else "loss"
+        journal.close_decision(d["id"], round(px, 2), outcome, pnl_pct)
+        closed += 1
+    return closed
+
+
+def scan_watchlist(
+    symbols: Optional[list[str]] = None,
+    use_llm: bool = False,
+    journal: Optional[Journal] = None,
+    session: Optional[str] = None,
+) -> dict[str, Any]:
+    """Run one full sweep and journal it. Returns a summary of the scan.
+
+    `session` (e.g. "pre" / "post") labels the scan_id so a pre-open plan and a
+    post-close resolution are distinguishable in the journal.
+    """
+    journal = journal or get_journal()
+    symbols = symbols or _watchlist()
+    scan_id = datetime.now(timezone.utc).strftime("scan-%Y%m%dT%H%M%S")
+    if session:
+        scan_id = f"{scan_id}-{session}"
+
+    prices: dict[str, float] = {}
+    pending: list[tuple[str, dict[str, Any]]] = []
+
+    ctx = nullcontext() if use_llm else deterministic()
+    with ctx:
+        for sym in symbols:
+            try:
+                res = run_cycle(sym, run_id=f"{scan_id}-{sym.lower()}")
+            except Exception as exc:  # one bad symbol must not sink the sweep
+                pending.append((sym, {"direction": "hold", "thesis": f"scan error: {exc}"}))
+                continue
+            ma = res.get("market_analysis") or {}
+            ra = res.get("reasoned_analysis") or {}
+            dec = res.get("decision") or {}
+            if isinstance(ma.get("last_price"), (int, float)):
+                prices[sym] = float(ma["last_price"])
+            src = next(
+                (n.get("note", "") for n in (res.get("trace") or {}).get("nodes", [])
+                 if n.get("node") == "reasoning"),
+                "",
+            )
+            pending.append((sym, {
+                "direction": (ra.get("direction") or dec.get("action") or "hold"),
+                "signal": ma.get("signal"),
+                "confidence": ra.get("confidence"),
+                "entry_price": ra.get("entry_price"),
+                "stop_loss": ra.get("stop_loss"),
+                "take_profit": ra.get("take_profit"),
+                "risk_reward": ra.get("risk_reward"),
+                "est_hold_days": ra.get("est_hold_days"),
+                "nn_score": ma.get("nn_score"),
+                "support": ma.get("support"),
+                "resistance": ma.get("resistance"),
+                "trend": ma.get("trend"),
+                "thesis": ra.get("thesis"),
+                "source": "llm" if src.startswith("llm") else "fallback",
+            }))
+
+    # Resolve prior open trades against the fresh prices BEFORE logging new ones,
+    # so a brand-new entry can't be "resolved" against its own entry price.
+    closed = _resolve_open(journal, prices)
+    for sym, fields in pending:
+        journal.record_decision(scan_id, sym, fields)
+
+    snapshot = get_broker().snapshot(prices)
+    journal.record_equity(scan_id, snapshot)
+
+    directional = sum(1 for _, f in pending if f["direction"] in ("long", "short"))
+    return {
+        "scan_id": scan_id,
+        "scanned": len(symbols),
+        "directional_calls": directional,
+        "closed_this_scan": closed,
+        "equity": snapshot.get("equity"),
+        "return_percent": snapshot.get("return_percent"),
+        "used_llm": use_llm,
+        "stats": journal.stats(),
+    }
+
+
+def run_screen_scan(
+    universe: Optional[list[str]] = None,
+    top_n: int = 20,
+    use_llm: bool = False,
+    session: Optional[str] = None,
+    throttle_s: float = 0.0,
+    journal: Optional[Journal] = None,
+) -> dict[str, Any]:
+    """Screen the whole universe, then run the full pipeline on the shortlist.
+
+    Stage 1: rank hundreds of symbols on the dependent signals (no LLM, no
+    orders). Stage 2: only the top `top_n` go through run_cycle for a reasoned
+    plan and a paper fill. This bounds cost no matter how big the universe is.
+    """
+    from app.journal.screener import screen_universe
+
+    journal = journal or get_journal()
+    scan_id = datetime.now(timezone.utc).strftime("scan-%Y%m%dT%H%M%S")
+    if session:
+        scan_id = f"{scan_id}-{session}"
+
+    candidates, prices = screen_universe(universe, top_n=top_n, throttle_s=throttle_s)
+
+    # Resolve prior open trades against the full price map (every screened
+    # symbol), so a name that dropped off the shortlist is still marked out.
+    closed = _resolve_open(journal, prices)
+
+    ctx = nullcontext() if use_llm else deterministic()
+    with ctx:
+        for rank, c in enumerate(candidates, start=1):
+            try:
+                res = run_cycle(c.symbol, run_id=f"{scan_id}-{c.symbol.lower()}")
+            except Exception:
+                continue
+            ma = res.get("market_analysis") or {}
+            ra = res.get("reasoned_analysis") or {}
+            dec = res.get("decision") or {}
+            src = next(
+                (n.get("note", "") for n in (res.get("trace") or {}).get("nodes", [])
+                 if n.get("node") == "reasoning"), "",
+            )
+            journal.record_decision(scan_id, c.symbol, {
+                "direction": (ra.get("direction") or dec.get("action") or "hold"),
+                "signal": ma.get("signal"),
+                "confidence": ra.get("confidence"),
+                "entry_price": ra.get("entry_price"),
+                "stop_loss": ra.get("stop_loss"),
+                "take_profit": ra.get("take_profit"),
+                "risk_reward": ra.get("risk_reward"),
+                "est_hold_days": ra.get("est_hold_days"),
+                "nn_score": ma.get("nn_score"),
+                "support": ma.get("support"),
+                "resistance": ma.get("resistance"),
+                "trend": ma.get("trend"),
+                "thesis": ra.get("thesis"),
+                "source": "llm" if src.startswith("llm") else "fallback",
+                "screen_score": c.score,
+                "screen_rank": rank,
+            })
+
+    snapshot = get_broker().snapshot(prices)
+    journal.record_equity(scan_id, snapshot)
+    return {
+        "scan_id": scan_id,
+        "universe": len(universe or []) or "config",
+        "screened": len(prices),
+        "shortlisted": len(candidates),
+        "closed_this_scan": closed,
+        "equity": snapshot.get("equity"),
+        "used_llm": use_llm,
+        "top": [c.as_dict() for c in candidates[:10]],
+        "stats": journal.stats(),
+    }
+
+
+if __name__ == "__main__":
+    import json
+    import os
+
+    sess = os.environ.get("SCAN_SESSION")
+    if os.environ.get("SCAN_MODE", "screen") == "watchlist":
+        summary = scan_watchlist(session=sess)
+    else:
+        summary = run_screen_scan(session=sess)
+    print(json.dumps(summary, indent=2))

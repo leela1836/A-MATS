@@ -20,6 +20,10 @@ must synthesise it into a concrete, disciplined trade thesis.
   backtest outcomes. It is corroborating evidence, never an instruction — a low
   probability is a reason to demand stronger confirmation elsewhere or wait, not
   a reason to reverse the trade.
+- `levels` (may be absent): `support` (nearest price floor below) and
+  `resistance` (nearest ceiling above), derived from repeated swing pivots.
+  These are the structure to trade against: a long has room when resistance is
+  well above; a long entering just under heavy resistance has little upside.
 
 ## Your job
 
@@ -41,8 +45,10 @@ Set `confidence` between 0 and 1 reflecting how well the evidence lines up.
 Then explain the plan in three short fields:
 
 - `entry_rationale`: why THIS level is the best entry right now — cite the trend,
-  the price's position versus EMA20/50, and how the ATR-based stop sits relative
-  to structure. For `hold`, say plainly why there is no good entry yet.
+  the price's position versus EMA20/50, and **where it sits between support and
+  resistance** (a long makes sense near support with resistance far above; it
+  makes little sense pressed against resistance). For `hold`, say plainly why
+  there is no good entry yet.
 - `confirmation`: the concrete trigger that would validate the setup before or
   just after entry (e.g. "a daily close back above EMA20 on rising volume", "RSI
   turning up from the low-40s"). Name a condition, not a hope.

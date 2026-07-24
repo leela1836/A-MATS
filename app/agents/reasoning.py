@@ -12,6 +12,7 @@ must be able to veto the LLM.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any, Optional
 
 from pydantic import ValidationError
@@ -31,6 +32,24 @@ def _finite(x: float) -> bool:
     return x == x and x not in (float("inf"), float("-inf"))
 
 
+# When set, reason() skips the LLM and uses the deterministic path. Autonomous
+# scans flip this on so a daily sweep of the watchlist costs zero LLM quota —
+# the ~20/day free budget cannot survive 10 symbols x 2 calls otherwise.
+FORCE_DETERMINISTIC = False
+
+
+@contextmanager
+def deterministic():
+    """Scope reasoning to its rule-based path (no LLM calls) for a block."""
+    global FORCE_DETERMINISTIC
+    prev = FORCE_DETERMINISTIC
+    FORCE_DETERMINISTIC = True
+    try:
+        yield
+    finally:
+        FORCE_DETERMINISTIC = prev
+
+
 def reason(
     ma: MarketAnalysis, news: Optional[NewsSignals] = None
 ) -> tuple[ReasonedAnalysis, dict[str, Any]]:
@@ -38,6 +57,8 @@ def reason(
     # A broken feed never reaches the model — cheaper and safer to short-circuit.
     if not _finite(ma.last_price):
         return _rule_based(ma), {"source": "fallback", "reason": "non-finite feed"}
+    if FORCE_DETERMINISTIC:
+        return _rule_based(ma), {"source": "fallback", "reason": "deterministic scan"}
 
     cfg = get_config("agent").get("reasoning_engine", {})
     version = str(cfg.get("prompt_version", "v1"))
@@ -49,6 +70,8 @@ def reason(
         "indicators": ma.indicators,
         "technical_signal": ma.signal.value,
     }
+    if ma.support is not None or ma.resistance is not None:
+        payload["levels"] = {"support": ma.support, "resistance": ma.resistance}
     if ma.patterns:
         payload["candlesticks"] = {
             "patterns": ma.patterns,
@@ -156,13 +179,27 @@ def _coerce(data: dict[str, Any], ma: MarketAnalysis) -> ReasonedAnalysis:
     )
 
 
+def _sr_phrase(ma: MarketAnalysis) -> str:
+    bits = []
+    if ma.support is not None:
+        bits.append(f"support ₹{ma.support:.2f}")
+    if ma.resistance is not None:
+        bits.append(f"resistance ₹{ma.resistance:.2f}")
+    return " · ".join(bits)
+
+
 def _default_entry_rationale(ma: MarketAnalysis, d: Direction, entry: float, atr: float) -> str:
     if d == Direction.HOLD:
-        return "No entry — conditions do not justify a position yet."
+        base = "No entry — conditions do not justify a position yet."
+        sr = _sr_phrase(ma)
+        return f"{base} Price sits between {sr}." if sr else base
     side = "above" if d == Direction.LONG else "below"
+    sr = _sr_phrase(ma)
+    sr_clause = f" Nearest levels: {sr}." if sr else ""
     return (
         f"Enter near ₹{entry:.2f} ({ma.trend} trend); stop and target are ATR-scaled "
-        f"(ATR ₹{atr:.2f}) so the risk sits {side} structure rather than at a round number."
+        f"(ATR ₹{atr:.2f}) so the risk sits {side} structure rather than at a round "
+        f"number.{sr_clause}"
     )
 
 

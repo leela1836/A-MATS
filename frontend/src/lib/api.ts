@@ -22,6 +22,14 @@ export interface MarketAnalysis {
   pattern_bias: string;
   pattern_score: number;
   nn_score: number | null;
+  support: number | null;
+  resistance: number | null;
+}
+
+export interface SRLevel {
+  price: number;
+  kind: string; // "support" | "resistance"
+  strength: number;
 }
 
 export interface Candle {
@@ -42,6 +50,9 @@ export interface CandlesResponse {
   symbol: string;
   period: string;
   bars: Candle[];
+  levels: SRLevel[];
+  support: number | null;
+  resistance: number | null;
 }
 
 export interface NewsArticleRef {

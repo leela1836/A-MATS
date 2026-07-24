@@ -1,0 +1,96 @@
+"""Screener + screen-scan tests — offline (conftest injects a fake market provider)."""
+import pytest
+
+from app.journal.scan import run_screen_scan
+from app.journal.screener import load_universe, screen_universe
+from app.journal.store import Journal
+
+
+@pytest.fixture
+def journal(tmp_path):
+    return Journal(path=tmp_path / "j.db")
+
+
+def test_load_universe_reads_file():
+    uni = load_universe()
+    assert len(uni) >= 10
+    assert all(s.endswith(".NS") for s in uni)
+    assert "RELIANCE.NS" in uni
+
+
+def test_screen_returns_ranked_candidates_and_prices():
+    cands, prices = screen_universe(["RELIANCE.NS", "TCS.NS", "INFY.NS"], top_n=5)
+    # Every fetched symbol contributes a price, even if it's a hold.
+    assert set(prices).issubset({"RELIANCE.NS", "TCS.NS", "INFY.NS"})
+    assert prices  # fake provider returns finite prices
+    # Candidates are only directional setups, ranked by score descending.
+    for c in cands:
+        assert c.direction in ("long", "short")
+        assert 0.0 <= c.score <= 1.0
+    assert cands == sorted(cands, key=lambda c: -c.score)
+
+
+def test_top_n_caps_the_shortlist():
+    cands, _ = screen_universe(["RELIANCE.NS", "TCS.NS", "INFY.NS", "SBIN.NS"], top_n=1)
+    assert len(cands) <= 1
+
+
+def test_bad_ticker_is_skipped_not_fatal(monkeypatch):
+    """A symbol whose provider raises must be skipped, not crash the sweep."""
+    from app.collectors.market_collector import MarketDataError
+    from app.models.state import Direction, MarketAnalysis
+    import app.journal.screener as screener
+
+    good = MarketAnalysis(
+        symbol="GOOD.NS", last_price=100.0, trend="up", signal=Direction.LONG,
+        confidence=0.6, indicators={}, nn_score=0.4, resistance=110.0,
+    )
+
+    class _FakeProvider:
+        def get_analysis(self, sym):
+            if sym == "BAD.NS":
+                raise MarketDataError("no data for BAD.NS")
+            return good
+
+    monkeypatch.setattr(screener, "get_market_provider", lambda: _FakeProvider())
+    cands, prices = screen_universe(["GOOD.NS", "BAD.NS"], top_n=5)
+    assert "BAD.NS" not in prices
+    assert "GOOD.NS" in prices
+    assert [c.symbol for c in cands] == ["GOOD.NS"]
+
+
+def test_screen_scan_journals_shortlist_with_scores(journal):
+    summary = run_screen_scan(
+        universe=["RELIANCE.NS", "TCS.NS", "INFY.NS"], top_n=3, journal=journal,
+    )
+    assert summary["screened"] >= 1
+    assert summary["used_llm"] is False
+    assert len(journal.equity_curve()) == 1
+    rows = journal.recent_decisions()
+    if rows:  # at least the directional survivors get journaled
+        assert any(r["screen_rank"] is not None for r in rows)
+        assert any(r["screen_score"] is not None for r in rows)
+
+
+def test_migration_adds_columns_to_old_db(tmp_path):
+    """A journal created before the screen columns existed gains them on open,
+    then round-trips a decision that uses them."""
+    import sqlite3
+    from app.journal.store import _SCHEMA
+
+    p = tmp_path / "old.db"
+    con = sqlite3.connect(p)
+    # Real pre-screen schema = current schema minus the two screen columns.
+    old_schema = _SCHEMA.replace("    screen_score  REAL,                   -- composite screen score (0..1)\n", "")
+    old_schema = old_schema.replace("    screen_rank   INTEGER                 -- rank within the scan's shortlist\n", "")
+    # Drop the trailing comma left on the previous column.
+    old_schema = old_schema.replace("pnl_pct       REAL,\n);", "pnl_pct       REAL\n);")
+    con.executescript(old_schema)
+    con.commit(); con.close()
+
+    cols_before = {r[1] for r in sqlite3.connect(p).execute("PRAGMA table_info(decisions)").fetchall()}
+    assert "screen_score" not in cols_before
+
+    j = Journal(path=p)  # __init__ runs the migration
+    j.record_decision("s", "X.NS", {"direction": "long", "screen_score": 0.7, "screen_rank": 1})
+    assert j.recent_decisions()[0]["screen_score"] == 0.7
