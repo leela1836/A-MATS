@@ -52,9 +52,12 @@ jobs:
       - name: Run screen scan (deterministic screen; LLM reasons the top picks)
         env:
           SCAN_MODE: screen
-          # LLM-reason the strongest N picks per scan. 0 = fully deterministic
-          # (no key needed). Set >0 AND add GOOGLE_API_KEY as a repo secret to
-          # let the agent genuinely reason within the daily quota.
+          # Real market data from the cloud: add UPSTOX_ACCESS_TOKEN (Analytics
+          # Token) as a repo secret. Without it, the run uses Yahoo, which is
+          # blocked on GitHub IPs (→ 0 decisions).
+          UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
+          # LLM-reason the strongest N picks per scan. 0 = fully deterministic.
+          # Set >0 AND add GOOGLE_API_KEY as a repo secret to enable reasoning.
           SCAN_LLM_TOP: "0"
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: python -m app.journal.scan

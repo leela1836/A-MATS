@@ -217,12 +217,18 @@ def fetch_history(
             if cached is not None and not cached.empty:
                 return cached
 
-    import yfinance as yf
+    # Prefer Upstox (works from cloud IPs) when an Analytics Token is set;
+    # otherwise Yahoo (fine from a home IP, blocked on datacenter IPs).
+    from app.collectors.upstox_collector import fetch_history_upstox, have_token
 
     try:
-        df = yf.Ticker(symbol).history(period=period, interval=interval)
+        if have_token():
+            df = fetch_history_upstox(symbol, period=period, interval=interval)
+        else:
+            import yfinance as yf
+            df = yf.Ticker(symbol).history(period=period, interval=interval)
     except Exception as exc:
-        stale = _load_stale()  # transient Yahoo error → serve last good data
+        stale = _load_stale()  # transient provider error → serve last good data
         if stale is not None and not stale.empty:
             return stale
         raise MarketDataError(f"fetch failed for {symbol}: {exc}") from exc
@@ -262,13 +268,11 @@ class YFinanceProvider:
         return analysis
 
     def _fetch(self, symbol: str) -> MarketAnalysis:
-        import yfinance as yf
-
-        period = "6mo" if self._lookback >= 120 else "3mo"
-        try:
-            df = yf.Ticker(symbol).history(period=period, interval="1d")
-        except Exception as exc:  # network / library errors
-            raise MarketDataError(f"fetch failed for {symbol}: {exc}") from exc
+        # Route through fetch_history so this uses the SAME source the rest of
+        # the system does (Upstox when a token is set — works from the cloud;
+        # Yahoo otherwise) and the disk cache. Calling yfinance directly here was
+        # the bug that left the GitHub agent blind. 2y so EMA200 is meaningful.
+        df = fetch_history(symbol, period="2y", interval="1d")
 
         if df is None or df.empty or len(df) < 50:
             raise MarketDataError(f"insufficient data for {symbol}")
