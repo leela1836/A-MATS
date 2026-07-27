@@ -131,7 +131,11 @@ def scan_watchlist(
     # Resolve prior open trades against the fresh prices BEFORE logging new ones,
     # so a brand-new entry can't be "resolved" against its own entry price.
     closed = _resolve_open(journal, prices)
+    # One trade per symbol: don't re-open a directional call already open.
+    open_syms = {d["symbol"] for d in journal.open_decisions()}
     for sym, fields in pending:
+        if fields["direction"] in ("long", "short") and sym in open_syms:
+            continue
         journal.record_decision(scan_id, sym, fields)
 
     snapshot = get_broker().snapshot(prices)
@@ -189,8 +193,16 @@ def run_screen_scan(
     if survival_halt:
         candidates = []
 
-    llm_used = 0
+    # One trade per symbol: skip any name that already has an OPEN decision, so
+    # a setup isn't re-opened (and re-filled, and re-counted) on every scan. When
+    # it resolves via stop/target, the next scan is free to enter again.
+    open_syms = {d["symbol"] for d in journal.open_decisions()}
+
+    llm_used, held_open = 0, 0
     for rank, c in enumerate(candidates, start=1):
+        if c.symbol in open_syms:
+            held_open += 1
+            continue
         # Reason with the LLM only on the strongest few picks — real reasoning
         # where it matters, within the daily quota; deterministic for the rest.
         llm_this = use_llm or rank <= llm_top
@@ -237,6 +249,7 @@ def run_screen_scan(
         "screened": len(prices),
         "shortlisted": len(candidates),
         "closed_this_scan": closed,
+        "held_open": held_open,
         "survival_halt": survival_halt,
         "equity": snapshot.get("equity"),
         "llm_reasoned": llm_used,

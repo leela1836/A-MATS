@@ -59,6 +59,19 @@ def test_bad_ticker_is_skipped_not_fatal(monkeypatch):
     assert [c.symbol for c in cands] == ["GOOD.NS"]
 
 
+def test_screen_scan_does_not_reopen_already_open_symbols(journal):
+    """Scanning the same names twice must NOT create duplicate open trades —
+    one open decision per symbol until it resolves."""
+    uni = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "SBIN.NS"]
+    run_screen_scan(universe=uni, top_n=4, journal=journal)
+    after_first = len(journal.open_decisions())
+    s2 = run_screen_scan(universe=uni, top_n=4, journal=journal)
+    after_second = len(journal.open_decisions())
+    assert after_first > 0, "first scan should open some trades"
+    assert after_second == after_first, "second scan must not duplicate open trades"
+    assert s2["held_open"] >= after_first  # they were skipped as already-open
+
+
 def test_screen_scan_journals_shortlist_with_scores(journal):
     summary = run_screen_scan(
         universe=["RELIANCE.NS", "TCS.NS", "INFY.NS"], top_n=3, journal=journal,
