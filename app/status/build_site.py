@@ -22,11 +22,13 @@ def _track_record() -> dict:
         # trim thesis for payload weight; keep enough to read on a phone
         if d.get("thesis"):
             d["thesis"] = d["thesis"][:240]
+    from app.status.summary import agent_summary
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "stats": j.stats(),
         "equity": j.equity_curve(500),
         "decisions": decisions,
+        "summary": agent_summary(j),
     }
 
 

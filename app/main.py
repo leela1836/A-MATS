@@ -187,6 +187,15 @@ def learn(bootstrap: bool = True) -> dict:
     return _learn(bootstrap=bootstrap)
 
 
+@app.get("/agent/summary")
+def agent_summary() -> dict:
+    """Plain-English 'what is the agent doing' readout: today's activity, track
+    record, open positions + thesis, what it has learned, and its memory."""
+    from app.status.summary import agent_summary as _summary
+
+    return _summary()
+
+
 @app.get("/journal/decisions")
 def journal_decisions(limit: int = 50, symbol: Optional[str] = None) -> dict:
     """Recent journaled decisions (newest first), optionally by symbol."""

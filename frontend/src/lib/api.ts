@@ -309,6 +309,78 @@ export async function getJournalDecisions(limit = 30): Promise<JournalDecision[]
   return (await res.json()).decisions;
 }
 
+export interface AgentSummary {
+  generated_at: string;
+  headline: string;
+  today: {
+    date: string;
+    scans: number;
+    opened: number;
+    longs: number;
+    shorts: number;
+    closed: number;
+    wins: number;
+    losses: number;
+    realized_pnl_pct: number | null;
+  };
+  track_record: JournalStats;
+  portfolio: {
+    equity: number | null;
+    total_pnl: number | null;
+    return_percent: number | null;
+    cash: number | null;
+    realized_pnl: number | null;
+    unrealized_pnl: number | null;
+  };
+  open_positions: {
+    symbol: string;
+    direction: string;
+    entry: number | null;
+    stop: number | null;
+    target: number | null;
+    nn_score: number | null;
+    reasoned: boolean;
+    thesis: string;
+  }[];
+  learning: {
+    events: {
+      ts: string;
+      trained: number;
+      experience_samples: number | null;
+      bootstrap_samples: number | null;
+      oos_auc: number | null;
+      note: string;
+    }[];
+    last: {
+      ts: string;
+      trained: number;
+      oos_auc: number | null;
+      note: string;
+    } | null;
+    experience_available: number;
+    model: {
+      available: boolean;
+      updated_at?: string;
+      trained_on?: string | null;
+      oos_auc?: number | null;
+    };
+  };
+  memory: {
+    what_it_is: string;
+    journal_experiences: number;
+    journal_decisions_total: number;
+    model_path: string;
+    model_updated: string | null;
+  };
+  factors: { note: string; tracked: string[] };
+}
+
+export async function getAgentSummary(): Promise<AgentSummary> {
+  const res = await fetch(`${API_BASE}/agent/summary`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Agent summary fetch failed (${res.status})`);
+  return res.json();
+}
+
 export async function triggerLearn(): Promise<Record<string, unknown>> {
   const res = await fetch(`${API_BASE}/learn`, { method: "POST" });
   if (!res.ok) throw new Error(`Learn failed (${res.status})`);

@@ -15,12 +15,16 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 JOURNAL_DB = DATA_DIR / "journal.db"
+
+# The agent trades the Indian session; a "day" on the dashboard means an IST day,
+# so a pre-open and a post-close scan land on the same calendar date a user sees.
+IST = timezone(timedelta(hours=5, minutes=30))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS decisions (
@@ -61,6 +65,16 @@ CREATE TABLE IF NOT EXISTS equity (
     open_positions INTEGER,
     return_percent REAL
 );
+CREATE TABLE IF NOT EXISTS learning (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts                 TEXT NOT NULL,
+    trained            INTEGER NOT NULL,       -- 1 = model updated, 0 = skipped
+    experience_samples INTEGER,                -- the agent's own closed trades used
+    bootstrap_samples  INTEGER,                -- backtest trades blended in
+    total              INTEGER,
+    oos_auc            REAL,                   -- out-of-sample AUC of the new gate
+    note               TEXT                    -- human-readable reason / summary
+);
 CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status);
 CREATE INDEX IF NOT EXISTS idx_decisions_symbol ON decisions(symbol);
 """
@@ -68,6 +82,23 @@ CREATE INDEX IF NOT EXISTS idx_decisions_symbol ON decisions(symbol);
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _ist_date(ts: Optional[str]) -> Optional[str]:
+    """The IST calendar date of a stored UTC timestamp (YYYY-MM-DD), or None."""
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(ts)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(IST).date().isoformat()
+    except ValueError:
+        return None
+
+
+def today_ist() -> str:
+    return datetime.now(IST).date().isoformat()
 
 
 class Journal:
@@ -153,6 +184,28 @@ class Journal:
                 (exit_price, _now(), outcome, round(pnl_pct, 3), decision_id),
             )
 
+    def record_learning(self, summary: dict[str, Any]) -> None:
+        """Log one retrain of the validator — the agent's memory of *learning*.
+
+        Called by the learning loop so the dashboard can answer "what did it
+        learn, and when" instead of the model silently changing under the hood.
+        """
+        note = summary.get("reason") or (
+            f"retrained on {summary.get('experience_samples', 0)} lived "
+            f"+ {summary.get('bootstrap_samples', 0)} bootstrap trades"
+            if summary.get("trained") else "skipped — not enough data yet"
+        )
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO learning (ts, trained, experience_samples, "
+                "bootstrap_samples, total, oos_auc, note) VALUES (?,?,?,?,?,?,?)",
+                (
+                    _now(), 1 if summary.get("trained") else 0,
+                    summary.get("experience_samples"), summary.get("bootstrap_samples"),
+                    summary.get("total"), summary.get("oos_auc"), note,
+                ),
+            )
+
     # ── reads ──
     def open_decisions(self) -> list[dict[str, Any]]:
         with self._conn() as c:
@@ -171,6 +224,54 @@ class Journal:
         params.append(limit)
         with self._conn() as c:
             return [dict(r) for r in c.execute(q, params).fetchall()]
+
+    def learning_events(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Most-recent retrains, newest first — the agent's learning history."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM learning ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def open_positions_detail(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Open directional calls with the plan + thesis, so a summary can say
+        plainly what the agent is holding and why."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT symbol, direction, entry_price, stop_loss, take_profit, "
+                "nn_score, thesis, source, ts FROM decisions WHERE status='open' "
+                "AND direction IN ('long','short') ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def today_summary(self) -> dict[str, Any]:
+        """What happened *today* (IST): scans run, trades opened, trades closed
+        and their win/loss, and the day's realised P&L on the paper book."""
+        today = today_ist()
+        with self._conn() as c:
+            rows = [dict(r) for r in c.execute(
+                "SELECT scan_id, direction, ts, exit_ts, outcome, pnl_pct "
+                "FROM decisions"
+            ).fetchall()]
+        opened = [r for r in rows if _ist_date(r["ts"]) == today]
+        closed = [r for r in rows if _ist_date(r["exit_ts"]) == today
+                  and r["outcome"] in ("win", "loss")]
+        longs = sum(1 for r in opened if r["direction"] == "long")
+        shorts = sum(1 for r in opened if r["direction"] == "short")
+        wins = sum(1 for r in closed if r["outcome"] == "win")
+        losses = sum(1 for r in closed if r["outcome"] == "loss")
+        pnl = sum(float(r["pnl_pct"] or 0.0) for r in closed)
+        return {
+            "date": today,
+            "scans": len({r["scan_id"] for r in opened}),
+            "opened": longs + shorts,
+            "longs": longs,
+            "shorts": shorts,
+            "closed": len(closed),
+            "wins": wins,
+            "losses": losses,
+            "realized_pnl_pct": round(pnl, 2) if closed else None,
+        }
 
     def training_rows(self) -> list[dict[str, Any]]:
         """Closed directional trades with a stored feature vector and a win/loss

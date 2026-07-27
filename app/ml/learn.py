@@ -77,8 +77,10 @@ def learn(bootstrap: bool = True, save: bool = True,
         parts = _concat(exp, boot)
 
     if len(parts) < MIN_TO_TRAIN:
-        return {"trained": False, "reason": "not enough data yet",
-                "experience_samples": len(exp), "total": len(parts)}
+        skipped = {"trained": False, "reason": "not enough data yet",
+                   "experience_samples": len(exp), "total": len(parts)}
+        journal.record_learning(skipped)  # remember that it tried and why it held off
+        return skipped
 
     res = _fit_and_eval(parts, HIDDEN_LAYERS)
     ev = res["mlp_eval"]
@@ -94,6 +96,7 @@ def learn(bootstrap: bool = True, save: bool = True,
                          **{k: summary[k] for k in ("experience_samples", "bootstrap_samples",
                                                     "total", "oos_auc")}})
         load_validator.cache_clear()  # next scan reloads the sharper model
+    journal.record_learning(summary)  # log the retrain into the agent's memory
     return summary
 
 

@@ -23,6 +23,7 @@ import { PipelineFlow, type Stage } from "./PipelineFlow";
 import { SignalPanel } from "./SignalPanel";
 import { TradePlan } from "./TradePlan";
 import { TrackRecord } from "./TrackRecord";
+import { AgentSummary } from "./AgentSummary";
 import { CandleChart } from "./charts/CandleChart";
 import { EquityChart } from "./charts/EquityChart";
 
@@ -210,6 +211,9 @@ export function Dashboard() {
           <div className="text-xs text-muted mt-1">Is the backend running at {API_BASE}?</div>
         </div>
       )}
+
+      {/* plain-English "what is the agent doing" — top of the page */}
+      <AgentSummary />
 
       {/* row A — price chart + signals */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
