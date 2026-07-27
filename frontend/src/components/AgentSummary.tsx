@@ -52,6 +52,18 @@ export function AgentSummary() {
       {/* the one-sentence answer */}
       <p className="text-sm text-foreground leading-relaxed mb-3">{s.headline}</p>
 
+      {/* the honest yardstick: agent vs just holding */}
+      {s.benchmark.return_percent != null && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-[11px] font-mono">
+          <span className="text-muted uppercase tracking-wide text-[10px]">vs buy &amp; hold</span>
+          <span>agent <span className={(s.portfolio.return_percent ?? 0) >= 0 ? "text-pass" : "text-fail"}>{pct(s.portfolio.return_percent)}</span></span>
+          <span className="text-muted">hold {pct(s.benchmark.return_percent)}</span>
+          {s.benchmark.spread_pct != null && (
+            <span>spread <span className={s.benchmark.spread_pct >= 0 ? "text-pass" : "text-fail"}>{s.benchmark.spread_pct >= 0 ? "+" : ""}{s.benchmark.spread_pct.toFixed(2)}%</span></span>
+          )}
+        </div>
+      )}
+
       {/* today's numbers */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
         <Tile label="scans today" value={String(t.scans)} />

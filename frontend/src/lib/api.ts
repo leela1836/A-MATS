@@ -295,6 +295,7 @@ export interface EquityPoint {
   equity: number;
   return_percent: number | null;
   open_positions: number;
+  benchmark: number | null;
 }
 
 export async function getJournalEquity(): Promise<{ equity_curve: EquityPoint[]; stats: JournalStats }> {
@@ -324,6 +325,12 @@ export interface AgentSummary {
     realized_pnl_pct: number | null;
   };
   track_record: JournalStats;
+  benchmark: {
+    equity: number | null;
+    return_percent: number | null;
+    spread_pct: number | null;
+    label: string;
+  };
   portfolio: {
     equity: number | null;
     total_pnl: number | null;

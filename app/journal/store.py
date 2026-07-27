@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     pnl_pct       REAL,
     screen_score  REAL,                   -- composite screen score (0..1)
     screen_rank   INTEGER,                -- rank within the scan's shortlist
-    features      TEXT                    -- JSON feature vector at entry (for learning)
+    features      TEXT,                   -- JSON feature vector at entry (for learning)
+    exit_reason   TEXT                    -- stop | target | expiry (how it closed)
 );
 CREATE TABLE IF NOT EXISTS equity (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +64,8 @@ CREATE TABLE IF NOT EXISTS equity (
     cash           REAL,
     positions_value REAL,
     open_positions INTEGER,
-    return_percent REAL
+    return_percent REAL,
+    benchmark      REAL                   -- fair equal-weight buy-and-hold equity
 );
 CREATE TABLE IF NOT EXISTS learning (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,9 +117,12 @@ class Journal:
         'ADD COLUMN IF NOT EXISTS'), so an existing journal keeps working."""
         have = {r[1] for r in c.execute("PRAGMA table_info(decisions)").fetchall()}
         for col, decl in (("screen_score", "REAL"), ("screen_rank", "INTEGER"),
-                          ("features", "TEXT")):
+                          ("features", "TEXT"), ("exit_reason", "TEXT")):
             if col not in have:
                 c.execute(f"ALTER TABLE decisions ADD COLUMN {col} {decl}")
+        eq_have = {r[1] for r in c.execute("PRAGMA table_info(equity)").fetchall()}
+        if "benchmark" not in eq_have:
+            c.execute("ALTER TABLE equity ADD COLUMN benchmark REAL")
 
     @contextmanager
     def _conn(self) -> Iterator[sqlite3.Connection]:
@@ -162,26 +167,28 @@ class Journal:
             )
             return int(cur.lastrowid)
 
-    def record_equity(self, scan_id: str, snapshot: dict[str, Any]) -> None:
+    def record_equity(self, scan_id: str, snapshot: dict[str, Any],
+                      benchmark: Optional[float] = None) -> None:
         with self._conn() as c:
             c.execute(
                 "INSERT INTO equity (ts, scan_id, equity, cash, positions_value, "
-                "open_positions, return_percent) VALUES (?,?,?,?,?,?,?)",
+                "open_positions, return_percent, benchmark) VALUES (?,?,?,?,?,?,?,?)",
                 (
                     _now(), scan_id,
                     snapshot.get("equity"), snapshot.get("cash"),
                     snapshot.get("positions_value"),
                     len(snapshot.get("open_positions", [])),
-                    snapshot.get("return_percent"),
+                    snapshot.get("return_percent"), benchmark,
                 ),
             )
 
-    def close_decision(self, decision_id: int, exit_price: float, outcome: str, pnl_pct: float) -> None:
+    def close_decision(self, decision_id: int, exit_price: float, outcome: str,
+                       pnl_pct: float, exit_reason: Optional[str] = None) -> None:
         with self._conn() as c:
             c.execute(
                 "UPDATE decisions SET status='closed', exit_price=?, exit_ts=?, "
-                "outcome=?, pnl_pct=? WHERE id=?",
-                (exit_price, _now(), outcome, round(pnl_pct, 3), decision_id),
+                "outcome=?, pnl_pct=?, exit_reason=? WHERE id=?",
+                (exit_price, _now(), outcome, round(pnl_pct, 3), exit_reason, decision_id),
             )
 
     def record_learning(self, summary: dict[str, Any]) -> None:
@@ -287,7 +294,7 @@ class Journal:
     def equity_curve(self, limit: int = 500) -> list[dict[str, Any]]:
         with self._conn() as c:
             rows = c.execute(
-                "SELECT ts, equity, return_percent, open_positions FROM equity "
+                "SELECT ts, equity, return_percent, open_positions, benchmark FROM equity "
                 "ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
             return [dict(r) for r in rows][::-1]  # oldest first for plotting

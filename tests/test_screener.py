@@ -72,6 +72,53 @@ def test_screen_scan_does_not_reopen_already_open_symbols(journal):
     assert s2["held_open"] >= after_first  # they were skipped as already-open
 
 
+def test_stale_open_trade_expires_and_feeds_learning(journal):
+    """A trade that neither hits stop nor target within its horizon is closed at
+    market (reason 'expiry') and becomes a learning example."""
+    import datetime as _dt
+    from app.journal.scan import _resolve_open
+
+    old_ts = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=30)).isoformat(timespec="seconds")
+    did = journal.record_decision("scan-x", "TEST.NS", {
+        "direction": "long", "entry_price": 100.0, "stop_loss": 90.0,
+        "take_profit": 120.0, "est_hold_days": 10,
+        "features": "[0,0,0,0,0,0,0,0,0,0,0,0,0]",
+    })
+    with journal._conn() as c:
+        c.execute("UPDATE decisions SET ts=? WHERE id=?", (old_ts, did))
+
+    # 105 hits neither the 90 stop nor the 120 target, but it is 30d > 10d old.
+    closed = _resolve_open(journal, {"TEST.NS": 105.0})
+    row = journal.recent_decisions(1)[0]
+    assert closed == 1
+    assert row["status"] == "closed"
+    assert row["exit_reason"] == "expiry"
+    assert row["outcome"] == "win"  # +5% at exit
+    assert len(journal.training_rows()) == 1  # now available to learn from
+
+
+def test_fresh_open_trade_does_not_expire(journal):
+    """A trade opened just now stays open — expiry only fires past the horizon."""
+    from app.journal.scan import _resolve_open
+
+    journal.record_decision("scan-y", "NEW.NS", {
+        "direction": "long", "entry_price": 100.0, "stop_loss": 90.0, "take_profit": 120.0,
+    })
+    assert _resolve_open(journal, {"NEW.NS": 105.0}) == 0
+    assert len(journal.open_decisions()) == 1
+
+
+def test_benchmark_tracks_buy_and_hold(tmp_path):
+    """The buy-and-hold basket initializes on first prices and marks to market."""
+    from app.journal.benchmark import BuyHold
+
+    b = BuyHold(path=tmp_path / "bench.json", starting_cash=100_000.0)
+    assert b.mark({"A.NS": 100.0, "B.NS": 200.0}) == pytest.approx(100_000.0)  # inception
+    # A doubles, B flat: equal-weight ⇒ +50%.
+    assert b.mark({"A.NS": 200.0, "B.NS": 200.0}) == pytest.approx(150_000.0)
+    assert b.return_percent(150_000.0) == pytest.approx(50.0)
+
+
 def test_screen_scan_journals_shortlist_with_scores(journal):
     summary = run_screen_scan(
         universe=["RELIANCE.NS", "TCS.NS", "INFY.NS"], top_n=3, journal=journal,

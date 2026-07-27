@@ -19,6 +19,7 @@ from typing import Any, Optional
 from app.agents.reasoning import deterministic
 from app.config import get_config
 from app.execution.paper_broker import get_broker
+from app.journal.benchmark import BuyHold
 from app.journal.store import Journal, get_journal
 from app.workflows.runner import run_cycle
 
@@ -26,6 +27,36 @@ from app.workflows.runner import run_cycle
 # stop opening NEW positions (still resolve open ones and snapshot equity).
 # Keeps the book alive to learn another day instead of averaging into ruin.
 SURVIVAL_DD_LIMIT = 30.0
+
+# Time-based exit: a setup that neither hits its stop nor its target within its
+# expected horizon is closed at market so it becomes a LEARNING example instead
+# of an open trade that lingers forever (which starves the experience buffer).
+DEFAULT_HOLD_DAYS = 15   # used when a plan gave no est_hold_days
+MAX_HOLD_DAYS = 20       # absolute ceiling — nothing stays open past this
+
+
+def _holding_days(ts: Optional[str], now: datetime) -> Optional[float]:
+    """Calendar days a decision has been open, from its recorded timestamp."""
+    if not ts:
+        return None
+    try:
+        t = datetime.fromisoformat(ts)
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return (now - t).total_seconds() / 86400.0
+    except Exception:
+        return None
+
+
+def _hold_limit(est_hold_days: Any) -> int:
+    """The holding horizon for a decision: its own estimate (capped), else default."""
+    try:
+        e = int(est_hold_days)
+        if e > 0:
+            return min(e, MAX_HOLD_DAYS)
+    except (TypeError, ValueError):
+        pass
+    return DEFAULT_HOLD_DAYS
 
 
 def _watchlist() -> list[str]:
@@ -55,6 +86,7 @@ def _resolve_open(journal: Journal, prices: dict[str, float]) -> int:
     decision with no fresh price for its symbol simply stays open.
     """
     closed = 0
+    now = datetime.now(timezone.utc)
     for d in journal.open_decisions():
         px = prices.get(d["symbol"])
         entry, stop, take = d.get("entry_price"), d.get("stop_loss"), d.get("take_profit")
@@ -63,12 +95,20 @@ def _resolve_open(journal: Journal, prices: dict[str, float]) -> int:
         long = d["direction"] == "long"
         hit_stop = px <= stop if long else px >= stop
         hit_take = px >= take if long else px <= take
-        if not (hit_stop or hit_take):
-            continue
         pnl_pct = ((px - entry) / entry * 100.0) * (1 if long else -1)
-        outcome = "win" if hit_take and not hit_stop else "loss"
-        journal.close_decision(d["id"], round(px, 2), outcome, pnl_pct)
-        closed += 1
+        if hit_stop or hit_take:
+            outcome = "win" if hit_take and not hit_stop else "loss"
+            journal.close_decision(d["id"], round(px, 2), outcome, pnl_pct,
+                                   exit_reason="target" if outcome == "win" else "stop")
+            closed += 1
+            continue
+        # Neither triggered nor invalidated — expire it at market once it has been
+        # open past its horizon, so the trade resolves and can feed the learner.
+        held = _holding_days(d.get("ts"), now)
+        if held is not None and held >= _hold_limit(d.get("est_hold_days")):
+            outcome = "win" if pnl_pct > 0 else "loss"
+            journal.close_decision(d["id"], round(px, 2), outcome, pnl_pct, exit_reason="expiry")
+            closed += 1
     return closed
 
 
@@ -139,7 +179,8 @@ def scan_watchlist(
         journal.record_decision(scan_id, sym, fields)
 
     snapshot = get_broker().snapshot(prices)
-    journal.record_equity(scan_id, snapshot)
+    bench = BuyHold(starting_cash=snapshot.get("starting_cash") or 100_000.0).mark(prices)
+    journal.record_equity(scan_id, snapshot, benchmark=bench)
 
     directional = sum(1 for _, f in pending if f["direction"] in ("long", "short"))
     return {
@@ -242,7 +283,8 @@ def run_screen_scan(
         })
 
     snapshot = get_broker().snapshot(prices)
-    journal.record_equity(scan_id, snapshot)
+    bench = BuyHold(starting_cash=snapshot.get("starting_cash") or 100_000.0).mark(prices)
+    journal.record_equity(scan_id, snapshot, benchmark=bench)
     return {
         "scan_id": scan_id,
         "universe": len(universe or []) or "config",

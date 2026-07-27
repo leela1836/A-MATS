@@ -1,0 +1,30 @@
+{
+  "initialized": true,
+  "starting_cash": 100000.0,
+  "cash": 0.0,
+  "holdings": {
+    "RELIANCE.NS": 7.82472613458529,
+    "TCS.NS": 4.435966818968193,
+    "HDFCBANK.NS": 13.462574044157243,
+    "INFY.NS": 9.607070804111826,
+    "ICICIBANK.NS": 6.978854072161351,
+    "SBIN.NS": 9.852216748768473,
+    "BHARTIARTL.NS": 5.268148772521336,
+    "ITC.NS": 35.279590756747226,
+    "LT.NS": 2.6415891800507185,
+    "HINDUNILVR.NS": 4.662004662004662
+  },
+  "start_prices": {
+    "RELIANCE.NS": 1278.0,
+    "TCS.NS": 2254.3,
+    "HDFCBANK.NS": 742.8,
+    "INFY.NS": 1040.9,
+    "ICICIBANK.NS": 1432.9,
+    "SBIN.NS": 1015.0,
+    "BHARTIARTL.NS": 1898.2,
+    "ITC.NS": 283.45,
+    "LT.NS": 3785.6,
+    "HINDUNILVR.NS": 2145.0
+  },
+  "start_ts": "2026-07-27T19:05:38+00:00"
+}

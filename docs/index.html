@@ -71,6 +71,11 @@
   .summary .shead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .headline{font-size:14px;line-height:1.5;margin:0 0 12px;color:var(--fg)}
   .headline{overflow-wrap:anywhere}
+  .vshold{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin:-4px 0 14px;
+    font-family:ui-monospace,monospace;font-size:11px}
+  .vshold .k{color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:10px}
+  .leg{display:flex;gap:12px;font-family:ui-monospace,monospace;font-size:10px;color:var(--muted);margin-bottom:6px}
+  .leg .a{color:var(--green)} .leg b{font-weight:400}
   .stoday{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px;margin-bottom:14px}
   .stoday>div{min-width:0}
   .stoday .v{font-size:16px;font-weight:600}
@@ -129,6 +134,7 @@
       <span class="mono" style="color:var(--muted);font-size:11px" id="sday"></span>
     </div>
     <p class="headline" id="headline"></p>
+    <div class="vshold" id="vshold" hidden></div>
     <div class="stoday" id="stoday"></div>
     <div class="sgrid">
       <div>
@@ -223,19 +229,24 @@ function chart(eq){
   const el=document.getElementById('chart'); el.innerHTML='';
   if(eq.length<2){el.innerHTML='<div class="empty">No equity history yet — it fills in as trades resolve.</div>';return;}
   const W=el.clientWidth,H=el.clientHeight,P={t:10,r:12,b:18,l:46};
-  const pts=eq.map((p,i)=>({i,v:p.equity,ts:p.ts}));
-  const lo=Math.min(...pts.map(p=>p.v)),hi=Math.max(...pts.map(p=>p.v)),span=(hi-lo)||1;
+  const pts=eq.map((p,i)=>({i,v:p.equity,b:(typeof p.benchmark==='number'?p.benchmark:null),ts:p.ts}));
+  const hasB=pts.some(p=>p.b!==null);
+  const vals=pts.flatMap(p=>p.b!==null?[p.v,p.b]:[p.v]);
+  const lo=Math.min(...vals),hi=Math.max(...vals),span=(hi-lo)||1;
   const x=i=>P.l+(i/(pts.length-1))*(W-P.l-P.r);
   const y=v=>P.t+(hi-v)/span*(H-P.t-P.b);
   const up=pts[pts.length-1].v>=pts[0].v, col=up?C.green:C.red;
   const d=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(p.v).toFixed(1)).join(' ');
   const area=d+`L${x(pts.length-1).toFixed(1)},${(H-P.b).toFixed(1)}L${x(0).toFixed(1)},${(H-P.b).toFixed(1)}Z`;
+  const bd=hasB?pts.map((p,i)=>(p.b===null?'':((i===0||pts[i-1].b===null?'M':'L')+x(i).toFixed(1)+','+y(p.b).toFixed(1)))).join(' ').trim():'';
   const grid=[hi,(hi+lo)/2,lo].map(v=>`<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="${C.border}"/>
     <text x="${P.l-6}" y="${y(v)+3}" fill="${C.muted}" font-size="9" text-anchor="end" font-family="monospace">${(v/1000).toFixed(0)}k</text>`).join('');
   el.innerHTML=`<svg width="${W}" height="${H}" id="svg">
     <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
-    ${grid}<path d="${area}" fill="url(#g)"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.8"/>
+    ${grid}<path d="${area}" fill="url(#g)"/>
+    ${bd?`<path d="${bd}" fill="none" stroke="${C.muted}" stroke-width="1.25" stroke-dasharray="4 3" opacity="0.85"/>`:''}
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="1.8"/>
     <g id="cross" style="display:none"><line stroke="${C.muted}" stroke-dasharray="3 3"/><circle r="3.5" fill="${col}" stroke="#131824" stroke-width="1.5"/></g></svg>`;
   const svg=el.querySelector('#svg'),cross=el.querySelector('#cross'),line=cross.querySelector('line'),dotc=cross.querySelector('circle');
   let tt=el.querySelector('.tt'); if(!tt){tt=document.createElement('div');tt.className='tt';el.appendChild(tt);}
@@ -244,7 +255,7 @@ function chart(eq){
     let i=Math.round(((cx-P.l)/(W-P.l-P.r))*(pts.length-1));i=Math.max(0,Math.min(pts.length-1,i));
     const p=pts[i];cross.style.display='';line.setAttribute('x1',x(i));line.setAttribute('x2',x(i));
     line.setAttribute('y1',P.t);line.setAttribute('y2',H-P.b);dotc.setAttribute('cx',x(i));dotc.setAttribute('cy',y(p.v));
-    tt.style.display='';tt.innerHTML=`<b>${inr(p.v)}</b><br><span style="color:${C.muted}">${(p.ts||'').slice(0,10)}</span>`;
+    tt.style.display='';tt.innerHTML=`<b>${inr(p.v)}</b>${p.b!==null?`<br><span style="color:${C.muted}">hold ${inr(p.b)}</span>`:''}<br><span style="color:${C.muted}">${(p.ts||'').slice(0,10)}</span>`;
     tt.style.left=Math.min(Math.max(x(i)-tt.offsetWidth/2,2),W-tt.offsetWidth-2)+'px';tt.style.top='6px';
   }
   svg.addEventListener('pointermove',move);svg.addEventListener('touchmove',move,{passive:true});
@@ -284,6 +295,16 @@ function summaryPanel(s){
   const t=s.today, p=s.portfolio||{}, L=s.learning||{}, M=s.memory||{}, F=s.factors||{};
   document.getElementById('sday').textContent='today · '+(t.date||'');
   document.getElementById('headline').textContent=s.headline||'';
+  const B=s.benchmark||{}, vh=document.getElementById('vshold');
+  if(B.return_percent!=null){
+    const ar=p.return_percent, sp=B.spread_pct;
+    const g=v=>v>=0?C.green:C.red, sgn=v=>(v>=0?'+':'')+v.toFixed(2)+'%';
+    vh.hidden=false;
+    vh.innerHTML=`<span class="k">vs buy &amp; hold</span>`
+      +(ar!=null?`<span>agent <b style="color:${g(ar)}">${sgn(ar)}</b></span>`:'')
+      +`<span style="color:${C.muted}">hold ${sgn(B.return_percent)}</span>`
+      +(sp!=null?`<span>spread <b style="color:${g(sp)}">${sgn(sp)}</b></span>`:'');
+  } else vh.hidden=true;
   const pnlCol=t.realized_pnl_pct==null?C.fg:t.realized_pnl_pct>=0?C.green:C.red;
   const wl=t.wins>t.losses?C.green:t.losses>t.wins?C.red:C.fg;
   const cells=[
@@ -323,7 +344,9 @@ function summaryPanel(s){
 function render(){
   summaryPanel(DATA.summary);
   tiles(DATA.stats,DATA.equity);
-  document.getElementById('eqmeta').textContent=DATA.equity.length?`· ${DATA.equity.length} snapshots`:'';
+  const hasB=(DATA.equity||[]).some(p=>typeof p.benchmark==='number');
+  document.getElementById('eqmeta').innerHTML=(DATA.equity.length?`· ${DATA.equity.length} snapshots`:'')
+    +(hasB?`　<span style="color:var(--green)">— agent</span> <span style="color:var(--muted)">--- buy &amp; hold</span>`:'');
   chart(DATA.equity);chips();rows();
   const g=new Date(DATA.generated_at);
   document.getElementById('updated').textContent='updated '+g.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});

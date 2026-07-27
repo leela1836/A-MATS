@@ -63,7 +63,7 @@ export function TrackRecord() {
     }
   };
 
-  const curve = equity.map((p) => ({ date: p.ts.slice(0, 10), equity: p.equity }));
+  const curve = equity.map((p) => ({ date: p.ts.slice(0, 10), equity: p.equity, benchmark: p.benchmark }));
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
