@@ -62,13 +62,13 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: python -m app.journal.scan
 
-      - name: Learn from experience (weekly — Friday post-market)
+      - name: Learn from experience (daily — post-market)
         run: |
-          if [ "${SCAN_SESSION}" = "post" ] && [ "$(date -u +%u)" = "5" ]; then
+          if [ "${SCAN_SESSION}" = "post" ]; then
             echo "retraining validator on accumulated journal + bootstrap"
             python -m app.ml.learn || echo "learn skipped (not enough data yet)"
           else
-            echo "not the weekly learning slot; skipping"
+            echo "not the post-market slot; skipping learning"
           fi
 
       - name: Build the status site (GitHub Pages)

@@ -26,7 +26,10 @@ from app.ml.validator import DEFAULT_MODEL_PATH, load_validator
 
 # Below this many lived trades, blend in the backtest bootstrap for a stable fit.
 BLEND_UNTIL = 150
-MIN_TO_TRAIN = 40
+# Minimum samples (lived + bootstrap) to attempt a fit. Kept low so the loop
+# actually retrains early — the bootstrap blend keeps an early fit stable while
+# the agent's own closed trades are still few.
+MIN_TO_TRAIN = 20
 
 
 def dataset_from_journal(journal: Journal) -> Dataset:
