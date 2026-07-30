@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A-MATS · what it is &amp; what we learned</title>
+<meta name="description" content="An autonomous multi-agent that screens NSE stocks, reasons about them, paper-trades, and learns from its own results — and the honest lesson it teaches about markets." />
+<meta name="theme-color" content="#0b0e14" />
+<!-- social preview -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="A-MATS" />
+<meta property="og:title" content="A-MATS — an autonomous trading agent that learns (and stays honest)" />
+<meta property="og:description" content="It screens the market, reasons, paper-trades, and learns on its own in the cloud. The honest finding: it does not beat buy-and-hold — and that's the point." />
+<meta property="og:url" content="https://leela1836.github.io/A-MATS/about.html" />
+<meta property="og:image" content="https://leela1836.github.io/A-MATS/og.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="A-MATS — an autonomous trading agent that learns (and stays honest)" />
+<meta name="twitter:description" content="Screens, reasons, paper-trades, and learns on its own. The honest finding: it does not beat buy-and-hold." />
+<meta name="twitter:image" content="https://leela1836.github.io/A-MATS/og.png" />
+<style>
+  :root{
+    --bg:#0b0e14; --surface:#131824; --surface2:#1a2130; --border:#232c3d;
+    --fg:#e6edf3; --muted:#8b98ab; --accent:#4f9dff; --green:#3fb950;
+    --red:#f85149; --amber:#f0883e; --teal:#3fb9a0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.6}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .brand{font-weight:700;font-size:18px;letter-spacing:-.02em}
+  .brand span{color:var(--muted);font-weight:400;font-size:12px;margin-left:6px}
+  .nav{display:flex;gap:8px;flex-wrap:wrap}
+  .nav a{background:var(--surface);border:1px solid var(--border);border-radius:999px;
+    padding:8px 14px;font-size:13px;font-weight:500}
+  .nav a.active{border-color:var(--accent);color:var(--accent)}
+  h1{font-size:26px;line-height:1.25;letter-spacing:-.02em;margin:6px 0 10px}
+  h2{font-size:17px;margin:30px 0 10px;letter-spacing:-.01em}
+  p{color:#c6d0dc;margin:10px 0}
+  .lede{font-size:16px;color:var(--fg)}
+  .verdict{background:rgba(240,136,62,.08);border:1px solid rgba(240,136,62,.32);
+    border-radius:14px;padding:16px 18px;margin:20px 0}
+  .verdict b{color:#f0b58e}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .step{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:9px 12px;font-size:13px;flex:1 1 auto;min-width:120px}
+  .step .n{color:var(--accent);font-family:ui-monospace,monospace;font-size:11px}
+  .step .d{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:16px 0}
+  ul{margin:10px 0;padding-left:20px;color:#c6d0dc}
+  li{margin:6px 0}
+  .k{color:var(--muted)}
+  code{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:12.5px}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:34px;line-height:1.7}
+  .cta{display:inline-block;margin-top:8px;background:rgba(79,157,255,.12);border:1px solid var(--accent);
+    color:var(--accent);border-radius:999px;padding:9px 16px;font-weight:600;font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">A-MATS<span>autonomous paper agent · NSE</span></div>
+    <nav class="nav">
+      <a href="./">Live dashboard</a>
+      <a class="active" href="./about.html">About</a>
+      <a href="./nn.html">NN health →</a>
+    </nav>
+  </header>
+
+  <h1>An agent that reasons about the market, trades on paper, and learns from how it did — honestly.</h1>
+  <p class="lede">A-MATS (Autonomous Multi-Agent Trading System) runs on its own in the cloud, three times a
+  trading day. No human presses go. It screens the whole NSE universe, builds a reasoned plan for the
+  strongest setups, records every decision, and closes the loop by learning from the trades it actually took.</p>
+
+  <div class="verdict">
+    📄 <b>The honest headline first.</b> Extensive walk-forward testing — and now a live paper track record —
+    show A-MATS <b>does not beat buy-and-hold</b> on Indian large- and mid-caps. Timing and stock-selection do
+    not reliably add return over simply holding a basket. This site exists to <b>watch an agent think and learn
+    in the open</b>, and to hold that finding to an honest yardstick — not to sell an edge that markets don't give.
+  </div>
+
+  <h2>How one scan works</h2>
+  <p>Every scan runs the same pipeline the interactive dashboard uses — deterministic by default, so a full
+  market sweep costs no LLM quota, with the language model reasoning only over the strongest few finalists.</p>
+  <div class="pipe">
+    <div class="step"><div class="n">1 · Market</div>Screen the universe on trend, momentum &amp; support/resistance<div class="d">pure market data</div></div>
+    <div class="step"><div class="n">2 · News</div>Curated Indian sources for context<div class="d">sentiment</div></div>
+    <div class="step"><div class="n">3 · Reason</div>Thesis, entry, stop &amp; target<div class="d">LLM on top picks</div></div>
+    <div class="step"><div class="n">4 · Evaluate</div>A veto gate scores the setup<div class="d">quality check</div></div>
+    <div class="step"><div class="n">5 · Risk</div>Position sizing &amp; survival guard<div class="d">don't blow up</div></div>
+    <div class="step"><div class="n">6 · Decide</div>Final long / short / hold<div class="d">one call per name</div></div>
+    <div class="step"><div class="n">7 · Journal</div>Record it; resolve open trades<div class="d">track record</div></div>
+  </div>
+
+  <h2>How it keeps itself honest</h2>
+  <div class="card">
+    <ul>
+      <li><span class="k">Fair benchmark.</span> Every equity number is shown against an equal-weight
+        <b>buy-and-hold</b> of the same basket, started at the same moment and cash.</li>
+      <li><span class="k">Real, persistent P&amp;L.</span> The equity curve is built from the journal's
+        <b>realized trade outcomes</b> (each modeled at 10% of starting capital), not a broker that resets —
+        so it can't flatter itself.</li>
+      <li><span class="k">One position per name.</span> A setup is opened, journaled and resolved exactly
+        once; trades that neither hit their stop nor target expire at market so nothing lingers unrecorded.</li>
+      <li><span class="k">Survival first.</span> If the paper book draws down past a limit, it stops opening
+        new positions and lives to learn another day.</li>
+    </ul>
+  </div>
+
+  <h2>How it learns</h2>
+  <p>A-MATS has no separate note-store. Its <b>memory is two things</b>: the journal (every decision and how it
+  turned out — its experience) and a small neural-net validator whose weights are the lessons distilled from
+  that experience. As paper trades close, they become training examples; a weekly job folds that lived
+  experience into the gate that vetoes weak setups. Early on it leans on a backtest bootstrap; over time its
+  own history takes over. Honest scope: this sharpens <i>selectivity and survival</i> — it does not conjure an
+  edge an efficient market won't give.</p>
+
+  <h2>What you're looking at</h2>
+  <p>The <a href="./">live dashboard</a> updates itself as the agent scans — today's activity, open positions
+  with their thesis, the agent-vs-hold equity curve, and what it has learned. The
+  <a href="./nn.html">neural-net health</a> page opens up the validator: its weights, feature influence, and an
+  in-browser predictor. Everything is a virtual ₹1,00,000 book — <b>paper trading, not advice.</b></p>
+
+  <a class="cta" href="./">→ Watch it live</a>
+
+  <footer>
+    A-MATS · an autonomous multi-agent trading system · NSE · paper only.<br>
+    Built to reason and learn in the open — and to tell the truth about the result.
+  </footer>
+</div>
+</body>
+</html>
