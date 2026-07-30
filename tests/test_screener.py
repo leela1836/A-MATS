@@ -108,6 +108,31 @@ def test_fresh_open_trade_does_not_expire(journal):
     assert len(journal.open_decisions()) == 1
 
 
+def test_equity_curve_reflects_realized_journal_pnl(journal):
+    """The agent equity line is built from persisted realized P&L (10%/trade),
+    not the broker — so it moves with actual trade outcomes."""
+    from app.journal.store import POSITION_FRACTION
+
+    did = journal.record_decision("scan-1", "X.NS", {
+        "direction": "long", "entry_price": 100.0, "stop_loss": 90.0, "take_profit": 110.0,
+    })
+    journal.record_equity("scan-1", {"equity": 0, "open_positions": []}, benchmark=100_000.0)
+    journal.close_decision(did, 110.0, "win", 10.0, exit_reason="target")
+    journal.record_equity("scan-2", {"equity": 0, "open_positions": []}, benchmark=101_000.0)
+    # Pin a clean chronology: snapshot1 < trade exit < snapshot2, so the first
+    # snapshot predates the win and the second reflects it.
+    with journal._conn() as c:
+        c.execute("UPDATE equity SET ts=? WHERE scan_id='scan-1'", ("2026-01-01T00:00:00+00:00",))
+        c.execute("UPDATE decisions SET exit_ts=? WHERE id=?", ("2026-01-01T00:00:05+00:00", did))
+        c.execute("UPDATE equity SET ts=? WHERE scan_id='scan-2'", ("2026-01-01T00:00:10+00:00",))
+
+    curve = journal.equity_curve(starting_cash=100_000.0)
+    assert curve[0]["equity"] == pytest.approx(100_000.0)          # before the win
+    gain = 100_000.0 * POSITION_FRACTION * 0.10                     # 10% of 10% trade
+    assert curve[-1]["equity"] == pytest.approx(100_000.0 + gain)  # after the win
+    assert curve[-1]["return_percent"] == pytest.approx(1.0)
+
+
 def test_benchmark_tracks_buy_and_hold(tmp_path):
     """The buy-and-hold basket initializes on first prices and marks to market."""
     from app.journal.benchmark import BuyHold

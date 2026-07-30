@@ -86,6 +86,28 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+# The honest track record is built from the JOURNAL's realized P&L (which persists
+# across cloud runs), NOT the paper broker's in-memory book (gitignored, resets
+# every run). We model each closed trade as deploying a fixed fraction of the
+# starting capital — a transparent, reproducible sizing assumption — so the equity
+# line reflects real trade outcomes instead of a broker that keeps resetting to 100k.
+POSITION_FRACTION = 0.10
+
+
+def _starting_cash() -> float:
+    """Paper account's starting capital (config-driven, state-independent)."""
+    try:
+        from app.config import get_config
+        trading = get_config("trading")["mode"]
+        mode = trading.get("current", "paper")
+        block = trading.get(mode, {})
+        if isinstance(block, dict) and block.get("initial_balance"):
+            return float(block["initial_balance"])
+    except Exception:
+        pass
+    return 100_000.0
+
+
 def _ist_date(ts: Optional[str]) -> Optional[str]:
     """The IST calendar date of a stored UTC timestamp (YYYY-MM-DD), or None."""
     if not ts:
@@ -291,13 +313,47 @@ class Journal:
             ).fetchall()
             return [dict(r) for r in rows]
 
-    def equity_curve(self, limit: int = 500) -> list[dict[str, Any]]:
+    def realized_pnl_series(self) -> list[tuple[str, float]]:
+        """(exit_ts, pnl_pct) for every closed directional trade, oldest first —
+        the persisted, honest record of how the agent's trades actually turned out."""
         with self._conn() as c:
             rows = c.execute(
-                "SELECT ts, equity, return_percent, open_positions, benchmark FROM equity "
-                "ORDER BY id DESC LIMIT ?", (limit,)
+                "SELECT exit_ts, pnl_pct FROM decisions WHERE status='closed' "
+                "AND direction IN ('long','short') AND pnl_pct IS NOT NULL "
+                "AND exit_ts IS NOT NULL ORDER BY exit_ts"
             ).fetchall()
-            return [dict(r) for r in rows][::-1]  # oldest first for plotting
+        return [(r["exit_ts"], float(r["pnl_pct"])) for r in rows]
+
+    def equity_curve(self, limit: int = 500,
+                     starting_cash: Optional[float] = None,
+                     fraction: float = POSITION_FRACTION) -> list[dict[str, Any]]:
+        """The agent's equity over time, derived from realized journal P&L.
+
+        The equity table gives the time axis and the (persisted) buy-and-hold
+        benchmark; the agent line is the starting capital plus the cumulative
+        rupee P&L of every trade closed by each snapshot, sized at `fraction` of
+        starting capital per trade. This is the honest, cloud-persistent curve —
+        it no longer depends on the paper broker, which resets each run.
+        """
+        start = starting_cash if starting_cash is not None else _starting_cash()
+        with self._conn() as c:
+            rows = [dict(r) for r in c.execute(
+                "SELECT ts, open_positions, benchmark FROM equity "
+                "ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()][::-1]  # oldest first for plotting
+        realized = self.realized_pnl_series()
+        out = []
+        for row in rows:
+            ts = row["ts"]
+            pnl = sum(start * fraction * (p / 100.0) for ets, p in realized if ets <= ts)
+            eq = round(start + pnl, 2)
+            out.append({
+                "ts": ts, "equity": eq,
+                "return_percent": round((eq / start - 1) * 100, 3) if start else None,
+                "open_positions": row.get("open_positions"),
+                "benchmark": row.get("benchmark"),
+            })
+        return out
 
     def stats(self) -> dict[str, Any]:
         """Track-record summary: decisions taken, win rate on closed trades."""

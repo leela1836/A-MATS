@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.execution.paper_broker import get_broker
 from app.journal.store import Journal, get_journal
 from app.ml.features import FEATURE_NAMES
 from app.ml.validator import DEFAULT_MODEL_PATH
@@ -107,12 +106,28 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
     journal = journal or get_journal()
     stats = journal.stats()
     today = journal.today_summary()
-    portfolio = get_broker().snapshot()
+    # Honest, persistent P&L: derive the agent's equity from the journal's realized
+    # trades (not the broker, which resets every cloud run). The last curve point is
+    # the current standing.
+    from app.journal.store import _starting_cash
+    start = _starting_cash()
+    curve = journal.equity_curve()
+    latest = curve[-1] if curve else None
+    agent_equity = latest["equity"] if latest else start
+    agent_ret = latest["return_percent"] if latest else 0.0
+    portfolio = {
+        "equity": agent_equity,
+        "total_pnl": round(agent_equity - start, 2),
+        "return_percent": agent_ret,
+        "cash": None,          # not meaningful in the journal-derived model
+        "realized_pnl": round(agent_equity - start, 2),
+        "unrealized_pnl": None,
+    }
     open_positions = journal.open_positions_detail(limit=20)
     learn_events = journal.learning_events(limit=10)
     experience = len(journal.training_rows())  # own closed trades it can learn from
     model = _model_meta()
-    bench = _benchmark(journal, portfolio.get("return_percent"))
+    bench = _benchmark(journal, portfolio["return_percent"])
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -120,14 +135,7 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
         "today": today,
         "benchmark": bench,
         "track_record": stats,
-        "portfolio": {
-            "equity": portfolio.get("equity"),
-            "total_pnl": portfolio.get("total_pnl"),
-            "return_percent": portfolio.get("return_percent"),
-            "cash": portfolio.get("cash"),
-            "realized_pnl": portfolio.get("realized_pnl"),
-            "unrealized_pnl": portfolio.get("unrealized_pnl"),
-        },
+        "portfolio": {**portfolio, "sizing_note": "each closed trade modeled at 10% of starting capital"},
         "open_positions": [
             {
                 "symbol": p["symbol"],
