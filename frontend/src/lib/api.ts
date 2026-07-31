@@ -344,8 +344,12 @@ export interface AgentSummary {
     nn_gate: { threshold: number; hi: EdgeBucket; lo: EdgeBucket };
     headline: string;
     suggestion: string;
+    significant: boolean;
+    caveat: string;
+    cost_pct: number;
     spread_trend: { ts: string; spread_pct: number }[];
   };
+  regime: { regime: string; proxy: string; gap_pct: number | null; note: string };
   portfolio: {
     equity: number | null;
     total_pnl: number | null;

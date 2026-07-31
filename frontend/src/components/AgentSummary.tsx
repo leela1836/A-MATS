@@ -150,8 +150,18 @@ export function AgentSummary() {
       {/* what the agent is actually good & bad at — persisted insights */}
       {s.insights && s.insights.overall.resolved > 0 && (
         <div className="mt-3 border-t border-border/50 pt-3">
-          <div className="text-xs text-muted mb-1">What it's good &amp; bad at <span className="text-[10px]">(edge, stored each scan)</span></div>
-          <p className="text-[11px] text-foreground leading-snug mb-2">{s.insights.headline}</p>
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-xs text-muted">What it's good &amp; bad at <span className="text-[10px]">(edge, stored each scan)</span></div>
+            {s.regime && (
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${s.regime.regime === "bull" ? "text-pass border-pass/40" : s.regime.regime === "bear" ? "text-fail border-fail/40" : "text-muted border-border"}`} title={s.regime.note}>
+                regime: {s.regime.regime}{s.regime.regime === "bull" ? " · shorts gated" : ""}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-foreground leading-snug mb-1">{s.insights.headline}</p>
+          {s.insights.caveat && (
+            <p className={`text-[10px] leading-snug mb-2 ${s.insights.significant ? "text-muted" : "text-[#f0883e]"}`}>⚠ {s.insights.caveat}</p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-[11px] font-mono">
             <EdgeTile label="long win" b={s.insights.by_direction.long} tone="text-pass" />
             <EdgeTile label="short win" b={s.insights.by_direction.short} tone="text-fail" />

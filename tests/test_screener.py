@@ -151,11 +151,35 @@ def test_equity_curve_reflects_realized_journal_pnl(journal):
         c.execute("UPDATE decisions SET exit_ts=? WHERE id=?", ("2026-01-01T00:00:05+00:00", did))
         c.execute("UPDATE equity SET ts=? WHERE scan_id='scan-2'", ("2026-01-01T00:00:10+00:00",))
 
-    curve = journal.equity_curve(starting_cash=100_000.0)
+    # cost_pct=0 isolates the pure sizing model
+    curve = journal.equity_curve(starting_cash=100_000.0, cost_pct=0.0)
     assert curve[0]["equity"] == pytest.approx(100_000.0)          # before the win
     gain = 100_000.0 * POSITION_FRACTION * 0.10                     # 10% of 10% trade
     assert curve[-1]["equity"] == pytest.approx(100_000.0 + gain)  # after the win
     assert curve[-1]["return_percent"] == pytest.approx(1.0)
+    # the modeled round-trip cost nets the same trade down
+    netted = journal.equity_curve(starting_cash=100_000.0, cost_pct=0.20)
+    assert netted[-1]["equity"] < curve[-1]["equity"]
+
+
+def test_market_regime_classifies_from_proxy(monkeypatch):
+    """The regime reads bull/bear off the proxy vs its 200-day average."""
+    import numpy as np
+    import pandas as pd
+    from app.collectors import market_collector
+    from app.strategies.regime import market_regime
+
+    def _flat_then(last: float):
+        idx = pd.date_range("2024-01-01", periods=260, freq="D")
+        close = np.full(260, 100.0)
+        close[-1] = last
+        return pd.DataFrame({"Open": close, "High": close, "Low": close,
+                             "Close": close, "Volume": 1.0}, index=idx)
+
+    monkeypatch.setattr(market_collector, "fetch_history", lambda *a, **k: _flat_then(130.0))
+    assert market_regime()["regime"] == "bull"     # well above the 200-day avg
+    monkeypatch.setattr(market_collector, "fetch_history", lambda *a, **k: _flat_then(70.0))
+    assert market_regime()["regime"] == "bear"     # well below it
 
 
 def test_benchmark_tracks_buy_and_hold(tmp_path):

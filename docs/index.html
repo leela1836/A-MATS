@@ -104,6 +104,10 @@
   .pos .plan{color:var(--muted);font-family:ui-monospace,monospace;font-size:10.5px;overflow-wrap:anywhere}
   .pos .th{color:var(--muted);margin-top:3px;line-height:1.4}
   .sinsights{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
+  .inshead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .regchip{font-family:ui-monospace,monospace;font-size:10px;border:1px solid var(--muted);
+    border-radius:6px;padding:2px 7px;color:var(--muted);white-space:nowrap}
+  .inscaveat{font-size:10.5px;line-height:1.4;margin:0 0 8px;color:var(--amber)}
   .edgegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin-bottom:8px}
   .edge{border:1px solid var(--border);border-radius:9px;padding:7px 9px}
   .edge .w{font-family:ui-monospace,monospace;font-size:14px;font-weight:600}
@@ -169,8 +173,12 @@
       </div>
     </div>
     <div class="sinsights" id="sinsights" hidden>
-      <div class="slabel">What it's good &amp; bad at <span style="font-size:9px;text-transform:none;letter-spacing:0">(edge, stored each scan)</span></div>
-      <p class="sbody" id="insHead" style="margin:3px 0 9px"></p>
+      <div class="inshead">
+        <div class="slabel">What it's good &amp; bad at <span style="font-size:9px;text-transform:none;letter-spacing:0">(edge, stored each scan)</span></div>
+        <span class="regchip" id="insRegime"></span>
+      </div>
+      <p class="sbody" id="insHead" style="margin:3px 0 3px"></p>
+      <p class="inscaveat" id="insCaveat"></p>
       <div class="edgegrid" id="edgegrid"></div>
       <div class="issug" id="insSug"></div>
     </div>
@@ -362,10 +370,19 @@ function summaryPanel(s){
     +`<div class="mono" style="margin-top:3px">journal: ${M.journal_decisions_total||0} decisions · ${M.journal_experiences||0} experiences · weights: ${esc(M.model_path||'')}</div>`;
 
   // insights — what it's good & bad at (persisted each scan)
-  const I=s.insights, si=document.getElementById('sinsights');
+  const I=s.insights, si=document.getElementById('sinsights'), RG=s.regime;
   if(I && I.overall && I.overall.resolved>0){
     si.hidden=false;
+    const rc=document.getElementById('insRegime');
+    if(RG && RG.regime){
+      const col=RG.regime==='bull'?C.green:RG.regime==='bear'?C.red:C.muted;
+      rc.textContent='regime: '+RG.regime+(RG.regime==='bull'?' · shorts gated':'');
+      rc.style.color=col; rc.style.borderColor=col; rc.title=RG.note||'';
+    } else rc.textContent='';
     document.getElementById('insHead').textContent=I.headline||'';
+    const cav=document.getElementById('insCaveat');
+    cav.textContent=I.caveat?('⚠ '+I.caveat):'';
+    cav.style.color=I.significant?C.muted:'#f0883e';
     const g=v=>v>=0?C.green:C.red;
     const edge=(lab,b,col)=>{
       const wr=b.win_rate==null?'—':b.win_rate+'%';

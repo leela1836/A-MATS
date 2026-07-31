@@ -150,6 +150,15 @@
       <li><span class="k">Real, persistent P&amp;L.</span> The equity curve is built from the journal's
         <b>realized trade outcomes</b> (each modeled at 10% of starting capital), not a broker that resets —
         so it can't flatter itself.</li>
+      <li><span class="k">Costs, not just prices.</span> Every closed trade is charged a modeled
+        <b>~0.2% round-trip cost</b> (brokerage + STT + a slippage allowance), so the equity and the
+        edge stats are <b>net of friction</b> — not a flattering gross price move.</li>
+      <li><span class="k">Small samples, said out loud.</span> A win-rate over a dozen trades is noise, not
+        an edge. The dashboard shows the sample size and warns <i>“treat as directional, not proven”</i>
+        rather than dressing up a coin flip as skill.</li>
+      <li><span class="k">It acts on what it learns.</span> When the market is clearly in an uptrend, the
+        agent <b>stops taking shorts</b> — the side its own record shows it loses on — instead of merely
+        noting the problem. The loop closes: findings change behaviour.</li>
       <li><span class="k">One position per name.</span> A setup is opened, journaled and resolved exactly
         once; trades that neither hit their stop nor target expire at market so nothing lingers unrecorded.</li>
       <li><span class="k">Survival first.</span> If the paper book draws down past a limit, it stops opening

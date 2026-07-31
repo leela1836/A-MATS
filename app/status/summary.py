@@ -129,7 +129,9 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
     model = _model_meta()
     bench = _benchmark(journal, portfolio["return_percent"])
     from app.status.insights import compute_insights
+    from app.strategies.regime import market_regime
     insights = compute_insights(journal)
+    regime = market_regime()
     # a compact spread trend (agent-minus-hold over the stored snapshots)
     spread_trend = [
         {"ts": r["ts"], "spread_pct": r["spread_pct"]}
@@ -142,6 +144,7 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
         "today": today,
         "benchmark": bench,
         "insights": {**insights, "spread_trend": spread_trend},
+        "regime": regime,
         "track_record": stats,
         "portfolio": {**portfolio, "sizing_note": "each closed trade modeled at 10% of starting capital"},
         "open_positions": [

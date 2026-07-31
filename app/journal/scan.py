@@ -21,6 +21,7 @@ from app.config import get_config
 from app.execution.paper_broker import get_broker
 from app.journal.benchmark import BuyHold
 from app.journal.store import Journal, get_journal
+from app.strategies.regime import market_regime
 from app.workflows.runner import run_cycle
 
 # Survival guard: if the paper account is down more than this from its start,
@@ -173,8 +174,13 @@ def scan_watchlist(
     closed = _resolve_open(journal, prices)
     # One trade per symbol: don't re-open a directional call already open.
     open_syms = {d["symbol"] for d in journal.open_decisions()}
+    regime = market_regime()  # don't short a bull tape
+    shorts_gated = 0
     for sym, fields in pending:
         if fields["direction"] in ("long", "short") and sym in open_syms:
+            continue
+        if fields["direction"] == "short" and regime["regime"] == "bull":
+            shorts_gated += 1
             continue
         journal.record_decision(scan_id, sym, fields)
 
@@ -190,6 +196,8 @@ def scan_watchlist(
         "scanned": len(symbols),
         "directional_calls": directional,
         "closed_this_scan": closed,
+        "shorts_gated": shorts_gated,
+        "regime": regime["regime"],
         "equity": snapshot.get("equity"),
         "return_percent": snapshot.get("return_percent"),
         "used_llm": use_llm,
@@ -241,7 +249,12 @@ def run_screen_scan(
     # it resolves via stop/target, the next scan is free to enter again.
     open_syms = {d["symbol"] for d in journal.open_decisions()}
 
-    llm_used, held_open = 0, 0
+    # Regime gate: the live record showed shorts bleeding into a rising market, so
+    # when the tape is clearly bullish the agent stops taking the losing side. This
+    # is the agent acting on its own insight, not just displaying it.
+    regime = market_regime()
+
+    llm_used, held_open, shorts_gated = 0, 0, 0
     for rank, c in enumerate(candidates, start=1):
         if c.symbol in open_syms:
             held_open += 1
@@ -258,6 +271,10 @@ def run_screen_scan(
         ma = res.get("market_analysis") or {}
         ra = res.get("reasoned_analysis") or {}
         dec = res.get("decision") or {}
+        final_dir = ra.get("direction") or dec.get("action") or "hold"
+        if final_dir == "short" and regime["regime"] == "bull":
+            shorts_gated += 1  # don't short a bull tape — regime veto
+            continue
         src = next(
             (n.get("note", "") for n in (res.get("trace") or {}).get("nodes", [])
              if n.get("node") == "reasoning"), "",
@@ -265,7 +282,7 @@ def run_screen_scan(
         if src.startswith("llm"):
             llm_used += 1
         journal.record_decision(scan_id, c.symbol, {
-            "direction": (ra.get("direction") or dec.get("action") or "hold"),
+            "direction": final_dir,
             "signal": ma.get("signal"),
             "confidence": ra.get("confidence"),
             "entry_price": ra.get("entry_price"),
@@ -296,6 +313,8 @@ def run_screen_scan(
         "shortlisted": len(candidates),
         "closed_this_scan": closed,
         "held_open": held_open,
+        "shorts_gated": shorts_gated,
+        "regime": regime["regime"],
         "survival_halt": survival_halt,
         "equity": snapshot.get("equity"),
         "llm_reasoned": llm_used,

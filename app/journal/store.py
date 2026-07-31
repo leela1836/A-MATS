@@ -103,6 +103,11 @@ def _now() -> str:
 # line reflects real trade outcomes instead of a broker that keeps resetting to 100k.
 POSITION_FRACTION = 0.10
 
+# Honest P&L includes frictions. A modeled NSE round-trip cost (brokerage + STT +
+# a slippage allowance), charged once per closed trade, so the equity curve and the
+# insights are net of costs rather than flattering gross price moves.
+ROUND_TRIP_COST_PCT = 0.20
+
 
 def _starting_cash() -> float:
     """Paper account's starting capital (config-driven, state-independent)."""
@@ -364,14 +369,16 @@ class Journal:
 
     def equity_curve(self, limit: int = 500,
                      starting_cash: Optional[float] = None,
-                     fraction: float = POSITION_FRACTION) -> list[dict[str, Any]]:
+                     fraction: float = POSITION_FRACTION,
+                     cost_pct: float = ROUND_TRIP_COST_PCT) -> list[dict[str, Any]]:
         """The agent's equity over time, derived from realized journal P&L.
 
         The equity table gives the time axis and the (persisted) buy-and-hold
         benchmark; the agent line is the starting capital plus the cumulative
         rupee P&L of every trade closed by each snapshot, sized at `fraction` of
-        starting capital per trade. This is the honest, cloud-persistent curve —
-        it no longer depends on the paper broker, which resets each run.
+        starting capital per trade and net of `cost_pct` round-trip friction.
+        This is the honest, cloud-persistent curve — it no longer depends on the
+        paper broker, which resets each run.
         """
         start = starting_cash if starting_cash is not None else _starting_cash()
         with self._conn() as c:
@@ -383,7 +390,8 @@ class Journal:
         out = []
         for row in rows:
             ts = row["ts"]
-            pnl = sum(start * fraction * (p / 100.0) for ets, p in realized if ets <= ts)
+            pnl = sum(start * fraction * ((p - cost_pct) / 100.0)
+                      for ets, p in realized if ets <= ts)
             eq = round(start + pnl, 2)
             out.append({
                 "ts": ts, "equity": eq,

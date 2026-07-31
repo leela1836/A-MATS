@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.journal.store import Journal, get_journal
+from app.journal.store import ROUND_TRIP_COST_PCT, Journal, get_journal
 
-NN_GATE = 0.40  # the P(win) level above which the validator has been predictive
+NN_GATE = 0.40           # the P(win) level above which the validator has been predictive
+SIGNIFICANT_N = 30       # below this many trades a win-rate is noise, not an edge
 
 
 def _rate(wins: int, n: int) -> float | None:
@@ -19,9 +20,12 @@ def _rate(wins: int, n: int) -> float | None:
 
 
 def _bucket(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Win-rate and P&L for a set of trades, NET of modeled round-trip costs — so
+    a trade that only cleared the spread reads as the loss it really is."""
     n = len(rows)
-    wins = sum(1 for r in rows if (r["pnl_pct"] or 0) > 0)
-    net = sum(float(r["pnl_pct"] or 0) for r in rows)
+    nets = [float(r["pnl_pct"] or 0) - ROUND_TRIP_COST_PCT for r in rows]
+    wins = sum(1 for p in nets if p > 0)
+    net = sum(nets)
     return {
         "trades": n,
         "win_rate": _rate(wins, n),
@@ -57,10 +61,15 @@ def compute_insights(journal: Journal | None = None) -> dict[str, Any]:
     spread = round(agent_ret - bench_ret, 2) if (bench_ret is not None and agent_ret is not None) else None
 
     headline, suggestion = _narrate(lg, sh, hi, lo, agent_ret, bench_ret, spread)
+    n = len(closed)
+    significant = n >= SIGNIFICANT_N
+    caveat = (f"Small sample (n={n}) — treat as directional, not proven."
+              if not significant else f"Based on {n} closed trades.")
+    caveat += f" All figures are net of {ROUND_TRIP_COST_PCT:.2f}% modeled round-trip costs."
     return {
         "generated_at": None,  # filled by callers that snapshot it
         "overall": {
-            "resolved": len(closed),
+            "resolved": n,
             "agent_return": agent_ret,
             "benchmark_return": bench_ret,
             "spread_pct": spread,
@@ -69,6 +78,9 @@ def compute_insights(journal: Journal | None = None) -> dict[str, Any]:
         "nn_gate": {"threshold": NN_GATE, "hi": hi, "lo": lo},
         "headline": headline,
         "suggestion": suggestion,
+        "significant": significant,
+        "caveat": caveat,
+        "cost_pct": ROUND_TRIP_COST_PCT,
     }
 
 
