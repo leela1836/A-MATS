@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
   checkHealth,
+  getAgentSummary,
   getBacktest,
   getCandles,
   getPortfolio,
@@ -32,7 +33,7 @@ function fmt(n: number | null | undefined, digits = 2): string {
 }
 
 export function Dashboard() {
-  const [symbol, setSymbol] = useState("RELIANCE.NS");
+  const [symbol, setSymbol] = useState("");
   const [result, setResult] = useState<RunResult | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [sr, setSr] = useState<{ levels: SRLevel[]; support: number | null; resistance: number | null }>({
@@ -92,7 +93,26 @@ export function Dashboard() {
     };
     ping();
     refreshPortfolio();
-    loadCandles(symbol);
+    // Default the explorer to the agent's highest-conviction current holding, so
+    // this panel opens on a stock the agent actually trades — not a fixed ticker.
+    (async () => {
+      try {
+        const s = await getAgentSummary();
+        const top = [...s.open_positions].sort(
+          (a, b) => (b.nn_score ?? 0) - (a.nn_score ?? 0),
+        )[0];
+        const sym = top?.symbol ?? "RELIANCE.NS";
+        if (active) {
+          setSymbol(sym);
+          loadCandles(sym);
+        }
+      } catch {
+        if (active) {
+          setSymbol("RELIANCE.NS"); // backend offline — fall back to a sane default
+          loadCandles("RELIANCE.NS");
+        }
+      }
+    })();
     const id = setInterval(ping, 5000);
     return () => {
       active = false;
