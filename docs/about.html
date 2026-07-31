@@ -57,6 +57,16 @@
   footer{color:var(--muted);font-size:12px;text-align:center;margin-top:34px;line-height:1.7}
   .cta{display:inline-block;margin-top:8px;background:rgba(79,157,255,.12);border:1px solid var(--accent);
     color:var(--accent);border-radius:999px;padding:9px 16px;font-weight:600;font-size:13.5px}
+  .flow{margin:16px 0;display:flex;flex-direction:column;align-items:stretch;gap:0}
+  .fstep{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 14px}
+  .fstep .ft{font-weight:600;font-size:13.5px;color:var(--fg)}
+  .fstep .ft .num{color:var(--accent);font-family:ui-monospace,monospace;font-size:12px;margin-right:8px}
+  .fstep .fd{color:var(--muted);font-size:12.5px;margin:3px 0 0;line-height:1.5}
+  .fstep .store{display:inline-block;margin-top:7px;font-family:ui-monospace,monospace;font-size:10.5px;
+    color:var(--teal);border:1px solid rgba(63,185,160,.3);border-radius:6px;padding:2px 8px}
+  .farrow{align-self:center;color:var(--muted);font-size:13px;line-height:1;margin:5px 0}
+  .fstep.loop{border-color:rgba(79,157,255,.4);background:rgba(79,157,255,.06)}
+  .fstep.pub{border-color:rgba(63,185,80,.35);background:rgba(63,185,80,.06)}
 </style>
 </head>
 <body>
@@ -93,6 +103,43 @@
     <div class="step"><div class="n">5 · Risk</div>Position sizing &amp; survival guard<div class="d">don't blow up</div></div>
     <div class="step"><div class="n">6 · Decide</div>Final long / short / hold<div class="d">one call per name</div></div>
     <div class="step"><div class="n">7 · Journal</div>Record it; resolve open trades<div class="d">track record</div></div>
+  </div>
+
+  <h2>The full loop, end to end</h2>
+  <p>Zoom out from a single scan and here is the whole cycle — it runs on GitHub's servers,
+  writes back its own memory, and republishes this site, with no human in the loop.</p>
+  <div class="flow">
+    <div class="fstep"><div class="ft"><span class="num">▶</span>Trigger</div>
+      <div class="fd">GitHub Actions cron — pre 08:45 · mid 11:30 (orders fill) · post 15:45 IST — or the manual “Run a scan” button on the dashboard.</div></div>
+    <div class="farrow">▼</div>
+    <div class="fstep"><div class="ft"><span class="num">1</span>Restore memory</div>
+      <div class="fd">Check out the repo and load the agent's state from the last run.</div>
+      <span class="store">journal.db · benchmark.json · trade_validator.json</span></div>
+    <div class="farrow">▼</div>
+    <div class="fstep"><div class="ft"><span class="num">2</span>Screen the universe</div>
+      <div class="fd">200+ NSE names → live Upstox prices → rank on trend, momentum &amp; support/resistance → a shortlist of the strongest setups.</div></div>
+    <div class="farrow">▼</div>
+    <div class="fstep"><div class="ft"><span class="num">3</span>Resolve open trades</div>
+      <div class="fd">Mark every open position to the fresh price: stop → loss, target → win, past its horizon → expire at market. Nothing lingers unrecorded.</div>
+      <span class="store">→ outcomes to journal.db</span></div>
+    <div class="farrow">▼</div>
+    <div class="fstep"><div class="ft"><span class="num">4</span>Reason &amp; decide</div>
+      <div class="fd">Each shortlisted name runs the pipeline — Market → News → Reasoning → Evaluate → Risk → Decision. The NN validator scores P(win); the LLM reasons only the strongest few (the rest are deterministic). One call per name.</div></div>
+    <div class="farrow">▼</div>
+    <div class="fstep"><div class="ft"><span class="num">5</span>Record everything</div>
+      <div class="fd">Journal the decision + its 13-feature fingerprint, mark the buy-and-hold benchmark, snapshot equity from realized P&amp;L, and snapshot the derived edge (insights).</div>
+      <span class="store">→ journal.db · benchmark.json</span></div>
+    <div class="farrow">▼</div>
+    <div class="fstep loop"><div class="ft"><span class="num">↻</span>Learn (Fridays)</div>
+      <div class="fd">Retrain the NN validator on its own closed trades, so the gate that vetoes weak setups keeps sharpening on the trades it actually meets.</div>
+      <span class="store">→ trade_validator.json</span></div>
+    <div class="farrow">▼</div>
+    <div class="fstep pub"><div class="ft"><span class="num">⤴</span>Publish</div>
+      <div class="fd">Build the site data, commit the updated memory back, and push — GitHub Pages redeploys this dashboard automatically.</div>
+      <span class="store">docs/data.json · docs/nn.json</span></div>
+    <div class="farrow">▼</div>
+    <div class="fstep"><div class="ft"><span class="num">◉</span>You watch</div>
+      <div class="fd">The live dashboard, the NN-health page, and this story all read the same journal — the single source of truth.</div></div>
   </div>
 
   <h2>How it keeps itself honest</h2>

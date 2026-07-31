@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS learning (
     oos_auc            REAL,                   -- out-of-sample AUC of the new gate
     note               TEXT                    -- human-readable reason / summary
 );
+CREATE TABLE IF NOT EXISTS insights (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts                    TEXT NOT NULL,
+    long_trades           INTEGER, long_win_rate  REAL, long_net_pct  REAL,
+    short_trades          INTEGER, short_win_rate REAL, short_net_pct REAL,
+    nn_hi_win_rate        REAL,    nn_lo_win_rate REAL,      -- gate discrimination
+    agent_return_pct      REAL, benchmark_return_pct REAL, spread_pct REAL,
+    headline              TEXT,                        -- one-line derived insight
+    suggestion            TEXT                         -- the action the data argues for
+);
 CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status);
 CREATE INDEX IF NOT EXISTS idx_decisions_symbol ON decisions(symbol);
 """
@@ -261,6 +271,34 @@ class Journal:
                 "SELECT * FROM learning ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def record_insight(self, ins: dict[str, Any]) -> None:
+        """Persist a snapshot of the agent's derived edge, so conclusions (not just
+        raw decisions) accumulate and can be tracked over time."""
+        d, nn, o = ins.get("by_direction", {}), ins.get("nn_gate", {}), ins.get("overall", {})
+        lg, sh = d.get("long", {}), d.get("short", {})
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO insights (ts, long_trades, long_win_rate, long_net_pct, "
+                "short_trades, short_win_rate, short_net_pct, nn_hi_win_rate, nn_lo_win_rate, "
+                "agent_return_pct, benchmark_return_pct, spread_pct, headline, suggestion) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    _now(), lg.get("trades"), lg.get("win_rate"), lg.get("net_pct"),
+                    sh.get("trades"), sh.get("win_rate"), sh.get("net_pct"),
+                    (nn.get("hi") or {}).get("win_rate"), (nn.get("lo") or {}).get("win_rate"),
+                    o.get("agent_return"), o.get("benchmark_return"), o.get("spread_pct"),
+                    ins.get("headline"), ins.get("suggestion"),
+                ),
+            )
+
+    def insights_history(self, limit: int = 30) -> list[dict[str, Any]]:
+        """Stored insight snapshots, oldest-first — for trending the agent's edge."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM insights ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(r) for r in rows][::-1]
 
     def open_positions_detail(self, limit: int = 20) -> list[dict[str, Any]]:
         """Open directional calls with the plan + thesis, so a summary can say

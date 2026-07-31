@@ -108,6 +108,31 @@ def test_fresh_open_trade_does_not_expire(journal):
     assert len(journal.open_decisions()) == 1
 
 
+def test_insights_capture_and_persist_the_edge(journal):
+    """compute_insights derives the by-direction edge from closed trades, and
+    record_insight persists it so conclusions accumulate."""
+    from app.status.insights import compute_insights
+
+    # two winning longs, one losing short
+    for sym, d, pnl in [("A.NS", "long", 4.0), ("B.NS", "long", 2.0), ("C.NS", "short", -3.0)]:
+        did = journal.record_decision("scan-1", sym, {
+            "direction": d, "entry_price": 100.0, "stop_loss": 90.0, "take_profit": 120.0,
+        })
+        journal.close_decision(did, 100.0 + pnl, "win" if pnl > 0 else "loss", pnl, exit_reason="target")
+
+    ins = compute_insights(journal)
+    assert ins["by_direction"]["long"]["trades"] == 2
+    assert ins["by_direction"]["long"]["win_rate"] == 100.0
+    assert ins["by_direction"]["short"]["win_rate"] == 0.0
+    assert "Longs" in ins["headline"]
+
+    journal.record_insight(ins)
+    hist = journal.insights_history()
+    assert len(hist) == 1
+    assert hist[-1]["long_win_rate"] == 100.0
+    assert hist[-1]["headline"] == ins["headline"]
+
+
 def test_equity_curve_reflects_realized_journal_pnl(journal):
     """The agent equity line is built from persisted realized P&L (10%/trade),
     not the broker — so it moves with actual trade outcomes."""

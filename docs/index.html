@@ -103,6 +103,13 @@
   .pos .top{display:flex;justify-content:space-between;gap:2px 10px;align-items:baseline;flex-wrap:wrap}
   .pos .plan{color:var(--muted);font-family:ui-monospace,monospace;font-size:10.5px;overflow-wrap:anywhere}
   .pos .th{color:var(--muted);margin-top:3px;line-height:1.4}
+  .sinsights{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
+  .edgegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin-bottom:8px}
+  .edge{border:1px solid var(--border);border-radius:9px;padding:7px 9px}
+  .edge .w{font-family:ui-monospace,monospace;font-size:14px;font-weight:600}
+  .edge .el{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:1px}
+  .edge .em{font-size:10px;color:var(--muted);font-family:ui-monospace,monospace;margin-top:1px}
+  .issug{font-size:11.5px;color:var(--accent);line-height:1.45}
   .sfactors{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
   .flink{color:var(--accent);font-size:12px;cursor:pointer;user-select:none}
   .fchips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
@@ -160,6 +167,12 @@
         <div class="slabel" style="margin-top:10px">Memory</div>
         <div class="sbody" id="smem"></div>
       </div>
+    </div>
+    <div class="sinsights" id="sinsights" hidden>
+      <div class="slabel">What it's good &amp; bad at <span style="font-size:9px;text-transform:none;letter-spacing:0">(edge, stored each scan)</span></div>
+      <p class="sbody" id="insHead" style="margin:3px 0 9px"></p>
+      <div class="edgegrid" id="edgegrid"></div>
+      <div class="issug" id="insSug"></div>
     </div>
     <div class="sfactors">
       <span class="flink" id="ftoggle"></span>
@@ -347,6 +360,27 @@ function summaryPanel(s){
   document.getElementById('smem').innerHTML=
     `<span class="mut">${esc(M.what_it_is||'')}</span>`
     +`<div class="mono" style="margin-top:3px">journal: ${M.journal_decisions_total||0} decisions · ${M.journal_experiences||0} experiences · weights: ${esc(M.model_path||'')}</div>`;
+
+  // insights — what it's good & bad at (persisted each scan)
+  const I=s.insights, si=document.getElementById('sinsights');
+  if(I && I.overall && I.overall.resolved>0){
+    si.hidden=false;
+    document.getElementById('insHead').textContent=I.headline||'';
+    const g=v=>v>=0?C.green:C.red;
+    const edge=(lab,b,col)=>{
+      const wr=b.win_rate==null?'—':b.win_rate+'%';
+      const net=b.net_pct==null?'':` · ${b.net_pct>=0?'+':''}${b.net_pct}%`;
+      return `<div class="edge"><div class="w" style="color:${col}">${wr}</div>`
+        +`<div class="el">${lab}</div><div class="em">${b.trades} tr${net}</div></div>`;
+    };
+    const th=I.nn_gate.threshold;
+    document.getElementById('edgegrid').innerHTML=
+      edge('long win',I.by_direction.long,C.green)
+      +edge('short win',I.by_direction.short,C.red)
+      +edge('NN≥'+th,I.nn_gate.hi,C.green)
+      +edge('NN&lt;'+th,I.nn_gate.lo,C.muted);
+    document.getElementById('insSug').textContent=I.suggestion?('↳ '+I.suggestion):'';
+  } else si.hidden=true;
 
   const ft=document.getElementById('ftoggle'), fb=document.getElementById('fbody'), tracked=F.tracked||[];
   const setTog=()=>ft.textContent=(fb.hidden?'▸':'▾')+` Factors it tracks (${tracked.length}) & what's missing`;

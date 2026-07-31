@@ -128,12 +128,20 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
     experience = len(journal.training_rows())  # own closed trades it can learn from
     model = _model_meta()
     bench = _benchmark(journal, portfolio["return_percent"])
+    from app.status.insights import compute_insights
+    insights = compute_insights(journal)
+    # a compact spread trend (agent-minus-hold over the stored snapshots)
+    spread_trend = [
+        {"ts": r["ts"], "spread_pct": r["spread_pct"]}
+        for r in journal.insights_history(40) if r.get("spread_pct") is not None
+    ]
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "headline": _headline(today, portfolio, len(open_positions), bench),
         "today": today,
         "benchmark": bench,
+        "insights": {**insights, "spread_trend": spread_trend},
         "track_record": stats,
         "portfolio": {**portfolio, "sizing_note": "each closed trade modeled at 10% of starting capital"},
         "open_positions": [

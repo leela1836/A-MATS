@@ -181,6 +181,8 @@ def scan_watchlist(
     snapshot = get_broker().snapshot(prices)
     bench = BuyHold(starting_cash=snapshot.get("starting_cash") or 100_000.0).mark(prices)
     journal.record_equity(scan_id, snapshot, benchmark=bench)
+    from app.status.insights import compute_insights
+    journal.record_insight(compute_insights(journal))  # snapshot the derived edge
 
     directional = sum(1 for _, f in pending if f["direction"] in ("long", "short"))
     return {
@@ -285,6 +287,8 @@ def run_screen_scan(
     snapshot = get_broker().snapshot(prices)
     bench = BuyHold(starting_cash=snapshot.get("starting_cash") or 100_000.0).mark(prices)
     journal.record_equity(scan_id, snapshot, benchmark=bench)
+    from app.status.insights import compute_insights
+    journal.record_insight(compute_insights(journal))  # snapshot the derived edge
     return {
         "scan_id": scan_id,
         "universe": len(universe or []) or "config",

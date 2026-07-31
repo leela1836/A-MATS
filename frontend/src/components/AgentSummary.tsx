@@ -17,6 +17,18 @@ function Tile({ label, value, tone }: { label: string; value: string; tone?: str
   );
 }
 
+function EdgeTile({ label, b, tone }: { label: string; b: { trades: number; win_rate: number | null; net_pct: number | null }; tone?: string }) {
+  return (
+    <div className="border border-border/50 rounded-md px-2 py-1.5">
+      <div className={tone ?? "text-foreground"}>{b.win_rate == null ? "—" : `${b.win_rate}%`}</div>
+      <div className="text-[9px] text-muted uppercase tracking-wide">{label}</div>
+      <div className="text-[10px] text-muted">
+        {b.trades} tr{b.net_pct != null ? ` · ${b.net_pct >= 0 ? "+" : ""}${b.net_pct}%` : ""}
+      </div>
+    </div>
+  );
+}
+
 /** Plain-English "what is the agent doing" readout — mirrors the GitHub Pages panel. */
 export function AgentSummary() {
   const [s, setS] = useState<Summary | null>(null);
@@ -134,6 +146,23 @@ export function AgentSummary() {
           </div>
         </div>
       </div>
+
+      {/* what the agent is actually good & bad at — persisted insights */}
+      {s.insights && s.insights.overall.resolved > 0 && (
+        <div className="mt-3 border-t border-border/50 pt-3">
+          <div className="text-xs text-muted mb-1">What it's good &amp; bad at <span className="text-[10px]">(edge, stored each scan)</span></div>
+          <p className="text-[11px] text-foreground leading-snug mb-2">{s.insights.headline}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-[11px] font-mono">
+            <EdgeTile label="long win" b={s.insights.by_direction.long} tone="text-pass" />
+            <EdgeTile label="short win" b={s.insights.by_direction.short} tone="text-fail" />
+            <EdgeTile label={`NN≥${s.insights.nn_gate.threshold}`} b={s.insights.nn_gate.hi} tone="text-pass" />
+            <EdgeTile label={`NN<${s.insights.nn_gate.threshold}`} b={s.insights.nn_gate.lo} tone="text-muted" />
+          </div>
+          {s.insights.suggestion && (
+            <div className="text-[11px] text-accent leading-snug">↳ {s.insights.suggestion}</div>
+          )}
+        </div>
+      )}
 
       {/* factors the agent tracks (and what's missing) */}
       <div className="mt-3 border-t border-border/50 pt-2">

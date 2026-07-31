@@ -310,6 +310,13 @@ export async function getJournalDecisions(limit = 30): Promise<JournalDecision[]
   return (await res.json()).decisions;
 }
 
+export interface EdgeBucket {
+  trades: number;
+  win_rate: number | null;
+  net_pct: number | null;
+  avg_pct: number | null;
+}
+
 export interface AgentSummary {
   generated_at: string;
   headline: string;
@@ -330,6 +337,14 @@ export interface AgentSummary {
     return_percent: number | null;
     spread_pct: number | null;
     label: string;
+  };
+  insights: {
+    overall: { resolved: number; agent_return: number | null; benchmark_return: number | null; spread_pct: number | null };
+    by_direction: { long: EdgeBucket; short: EdgeBucket };
+    nn_gate: { threshold: number; hi: EdgeBucket; lo: EdgeBucket };
+    headline: string;
+    suggestion: string;
+    spread_trend: { ts: string; spread_pct: number }[];
   };
   portfolio: {
     equity: number | null;
