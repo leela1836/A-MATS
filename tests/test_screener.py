@@ -97,6 +97,34 @@ def test_stale_open_trade_expires_and_feeds_learning(journal):
     assert len(journal.training_rows()) == 1  # now available to learn from
 
 
+def test_path_based_resolution_exits_at_the_level(journal, monkeypatch):
+    """A target touched by the bar's HIGH (between scans) is caught and closed at
+    the target price — not missed because the sampled price sat below it."""
+    import pandas as pd
+    from app.collectors import market_collector
+    from app.journal.scan import _resolve_open
+
+    did = journal.record_decision("s", "P.NS", {
+        "direction": "long", "entry_price": 100.0, "stop_loss": 90.0, "take_profit": 120.0,
+    })
+    with journal._conn() as c:
+        c.execute("UPDATE decisions SET ts=? WHERE id=?", ("2024-06-01T00:00:00+00:00", did))
+    # bars strictly after entry; the 3rd bar's HIGH spikes through the 120 target
+    idx = pd.date_range("2024-06-02", periods=5, freq="D")
+    df = pd.DataFrame({
+        "Open": [101, 102, 103, 104, 105], "High": [102, 103, 125, 106, 107],
+        "Low": [100, 101, 102, 103, 104], "Close": [101, 102, 104, 105, 106],
+        "Volume": 1_000_000.0,
+    }, index=idx)
+    monkeypatch.setattr(market_collector, "fetch_history", lambda *a, **k: df)
+
+    closed = _resolve_open(journal, {"P.NS": 106.0})   # sampled price is only 106
+    row = journal.recent_decisions(1)[0]
+    assert closed == 1
+    assert row["exit_reason"] == "target" and row["outcome"] == "win"
+    assert row["exit_price"] == 120.0                  # exits AT the target, not 106
+
+
 def test_fresh_open_trade_does_not_expire(journal):
     """A trade opened just now stays open — expiry only fires past the horizon."""
     from app.journal.scan import _resolve_open

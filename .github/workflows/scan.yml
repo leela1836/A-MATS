@@ -1,30 +1,30 @@
 name: A-MATS market scan
 
-# Runs on GitHub's servers — independent of your laptop. Two scheduled sweeps a
-# day plus a manual button. The scan is DETERMINISTIC (no LLM), so it needs NO
-# secrets: no Gemini/OpenAI key, no rotation risk. Only market data (yfinance).
+# Runs on GitHub's servers — independent of your laptop.
+#  • 3 heavy SCREEN sweeps/day (pre / mid / post) find new trades, learn, publish.
+#  • A light MANAGE loop every 10 min during the session re-prices OPEN trades and
+#    exits any that hit a level, broke their thesis, or expired — the "near-live"
+#    position management. Manage ticks only commit when they actually close a trade.
 #
 # GitHub cron is UTC. NSE trades ~09:15-15:30 IST (UTC+5:30):
-#   03:15 UTC = 08:45 IST  → pre-open plan
-#   10:15 UTC = 15:45 IST  → post-close resolution
-# Note: scheduled workflows can be delayed a few minutes under GitHub load, and
-# cron does not know NSE holidays — a holiday scan just journals "market closed"
-# with no fills, which the market-calendar guard handles.
+#   03:15 UTC = 08:45 IST → pre-open · 06:00 → mid · 10:15 → post-close
+# Public repo ⇒ unlimited free Actions minutes. Scheduled runs can be delayed a few
+# minutes under load; holidays journal "market closed" (the calendar guard handles it).
 
 on:
   schedule:
-    - cron: "15 3 * * 1-5"    # 08:45 IST — pre-open plan
-    - cron: "0 6 * * 1-5"     # 11:30 IST — MID-SESSION: in NSE hours, so the
-    #                            paper broker actually FILLS orders here
-    - cron: "15 10 * * 1-5"   # 15:45 IST — post-close resolution
-  workflow_dispatch:           # manual "Run workflow" button
+    - cron: "15 3 * * 1-5"      # 08:45 IST — pre-open plan (SCREEN)
+    - cron: "0 6 * * 1-5"       # 11:30 IST — mid-session, orders fill (SCREEN)
+    - cron: "15 10 * * 1-5"     # 15:45 IST — post-close resolution + LEARN (SCREEN)
+    - cron: "*/10 3-10 * * 1-5" # every 10 min through the session — MANAGE open trades
+  workflow_dispatch:             # manual "Run workflow" button (SCREEN)
 
 permissions:
-  contents: write              # to commit the updated journal back
+  contents: write                # to commit the updated journal back
 
 concurrency:
   group: amats-scan
-  cancel-in-progress: false    # never interrupt a scan mid-write
+  cancel-in-progress: false      # never interrupt a scan mid-write; queue instead
 
 jobs:
   scan:
@@ -40,41 +40,47 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Label the session (pre / post / manual)
+      - name: Label the run (session + mode)
         run: |
           case "${{ github.event.schedule }}" in
-            "15 3 * * 1-5")  echo "SCAN_SESSION=pre"  >> "$GITHUB_ENV" ;;
-            "0 6 * * 1-5")   echo "SCAN_SESSION=mid"  >> "$GITHUB_ENV" ;;
-            "15 10 * * 1-5") echo "SCAN_SESSION=post" >> "$GITHUB_ENV" ;;
-            *)               echo "SCAN_SESSION=manual" >> "$GITHUB_ENV" ;;
+            "15 3 * * 1-5")      echo "SCAN_SESSION=pre"    >> "$GITHUB_ENV"; echo "SCAN_MODE=screen"  >> "$GITHUB_ENV" ;;
+            "0 6 * * 1-5")       echo "SCAN_SESSION=mid"    >> "$GITHUB_ENV"; echo "SCAN_MODE=screen"  >> "$GITHUB_ENV" ;;
+            "15 10 * * 1-5")     echo "SCAN_SESSION=post"   >> "$GITHUB_ENV"; echo "SCAN_MODE=screen"  >> "$GITHUB_ENV" ;;
+            "*/10 3-10 * * 1-5") echo "SCAN_SESSION=manage" >> "$GITHUB_ENV"; echo "SCAN_MODE=manage"  >> "$GITHUB_ENV" ;;
+            *)                   echo "SCAN_SESSION=manual" >> "$GITHUB_ENV"; echo "SCAN_MODE=screen"  >> "$GITHUB_ENV" ;;
           esac
 
-      - name: Run screen scan (deterministic screen; LLM reasons the top picks)
+      - name: Run (screen finds trades · manage watches open trades)
         env:
-          SCAN_MODE: screen
-          # Real market data from the cloud: add UPSTOX_ACCESS_TOKEN (Analytics
-          # Token) as a repo secret. Without it, the run uses Yahoo, which is
-          # blocked on GitHub IPs (→ 0 decisions).
+          # Real market data from the cloud (Upstox Analytics Token as a repo secret).
           UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
-          # LLM-reason the strongest N picks per scan. 0 = fully deterministic.
-          # Set >0 AND add GOOGLE_API_KEY as a repo secret to enable reasoning.
+          # LLM-reason the strongest N picks per SCREEN. 0 = fully deterministic.
           SCAN_LLM_TOP: "5"
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-        run: python -m app.journal.scan
-
-      - name: Learn from experience (daily — post-market)
         run: |
-          if [ "${SCAN_SESSION}" = "post" ]; then
-            echo "retraining validator on accumulated journal + bootstrap"
-            python -m app.ml.learn || echo "learn skipped (not enough data yet)"
+          OUT=$(python -m app.journal.scan)
+          echo "$OUT"
+          # A manage tick that closed nothing changes no data — skip publish to
+          # keep the committed journal from churning every 10 minutes.
+          if [ "${SCAN_MODE}" = "manage" ]; then
+            CLOSED=$(printf '%s' "$OUT" | python -c "import sys,json;print(json.load(sys.stdin).get('closed',0))" 2>/dev/null || echo 1)
+            [ "$CLOSED" = "0" ] && echo "PUBLISH=0" >> "$GITHUB_ENV" || echo "PUBLISH=1" >> "$GITHUB_ENV"
           else
-            echo "not the post-market slot; skipping learning"
+            echo "PUBLISH=1" >> "$GITHUB_ENV"
           fi
 
+      - name: Learn from experience (daily — post-market)
+        if: env.PUBLISH == '1' && env.SCAN_SESSION == 'post'
+        run: |
+          echo "retraining validator on accumulated journal + bootstrap"
+          python -m app.ml.learn || echo "learn skipped (not enough data yet)"
+
       - name: Build the status site (GitHub Pages)
+        if: env.PUBLISH == '1'
         run: python -m app.status.build_site
 
       - name: Commit the journal, model, and site data
+        if: env.PUBLISH == '1'
         run: |
           git config user.name "amats-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"

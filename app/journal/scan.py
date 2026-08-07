@@ -80,31 +80,99 @@ def _features_json(symbol: str, direction: str) -> Optional[str]:
         return None
 
 
-def _resolve_open(journal: Journal, prices: dict[str, float]) -> int:
-    """Close any open decision whose stop or target the latest price has hit.
+def _bars_since(symbol: str, entry_ts: Optional[str]):
+    """Daily OHLC bars strictly after the entry date (cached fetch), or None."""
+    if not entry_ts:
+        return None
+    try:
+        from app.collectors.market_collector import fetch_history
+        df = fetch_history(symbol, period="1y")
+        entry_dt = datetime.fromisoformat(entry_ts)
+        return df[df.index.date > entry_dt.date()]
+    except Exception:
+        return None
 
-    Uses only the price we just observed — no lookahead, no second fetch. A
-    decision with no fresh price for its symbol simply stays open.
+
+def _path_exit(bars, is_long: bool, stop: float, take: float):
+    """Did the high/low PATH since entry touch the stop or target? Returns
+    (exit_price, outcome, reason) at the level hit, else None. A bar spanning both
+    levels is treated as the stop hitting first (conservative, no lookahead)."""
+    if bars is None or bars.empty:
+        return None
+    for _, bar in bars.iterrows():
+        hi, lo = float(bar["High"]), float(bar["Low"])
+        if is_long:
+            if lo <= stop:
+                return stop, "loss", "stop"
+            if hi >= take:
+                return take, "win", "target"
+        else:
+            if hi >= stop:
+                return stop, "loss", "stop"
+            if lo <= take:
+                return take, "win", "target"
+    return None
+
+
+def _thesis_broken(bars, is_long: bool) -> bool:
+    """Has the trend flipped against the position? (the decision is now wrong)."""
+    if bars is None or len(bars) < 50:
+        return False
+    try:
+        from app.collectors.market_collector import classify, compute_indicators
+        trend, _sig, _c = classify(compute_indicators(bars))
+    except Exception:
+        return False
+    return trend == "down" if is_long else trend == "up"
+
+
+def _resolve_open(journal: Journal, prices: dict[str, float]) -> int:
+    """Close open trades that hit a level, broke their thesis, or timed out.
+
+    Per position: (1) PATH-based stop/target — did the bar high/low since entry
+    actually touch a level (not just the instant we sampled); (2) THESIS break —
+    the trend flipped against the trade, exit rather than sit and hope; (3) expiry
+    past the horizon. Falls back to the instantaneous price when bars can't be
+    fetched, so it degrades gracefully, never worse than before.
     """
     closed = 0
     now = datetime.now(timezone.utc)
     for d in journal.open_decisions():
-        px = prices.get(d["symbol"])
         entry, stop, take = d.get("entry_price"), d.get("stop_loss"), d.get("take_profit")
-        if px is None or entry in (None, 0) or stop is None or take is None:
+        if entry in (None, 0) or stop is None or take is None:
             continue
-        long = d["direction"] == "long"
-        hit_stop = px <= stop if long else px >= stop
-        hit_take = px >= take if long else px <= take
-        pnl_pct = ((px - entry) / entry * 100.0) * (1 if long else -1)
+        is_long = d["direction"] == "long"
+        bars = _bars_since(d["symbol"], d.get("ts"))
+
+        hit = _path_exit(bars, is_long, stop, take)
+        if hit:
+            exit_px, outcome, reason = hit
+            pnl = ((exit_px - entry) / entry * 100.0) * (1 if is_long else -1)
+            journal.close_decision(d["id"], round(exit_px, 2), outcome, pnl, exit_reason=reason)
+            closed += 1
+            continue
+
+        px = prices.get(d["symbol"])
+        if px is None:
+            continue
+        pnl_pct = ((px - entry) / entry * 100.0) * (1 if is_long else -1)
+
+        if _thesis_broken(bars, is_long):
+            journal.close_decision(d["id"], round(px, 2),
+                                   "win" if pnl_pct > 0 else "loss", pnl_pct,
+                                   exit_reason="thesis")
+            closed += 1
+            continue
+
+        hit_stop = px <= stop if is_long else px >= stop
+        hit_take = px >= take if is_long else px <= take
         if hit_stop or hit_take:
             outcome = "win" if hit_take and not hit_stop else "loss"
             journal.close_decision(d["id"], round(px, 2), outcome, pnl_pct,
                                    exit_reason="target" if outcome == "win" else "stop")
             closed += 1
             continue
-        # Neither triggered nor invalidated — expire it at market once it has been
-        # open past its horizon, so the trade resolves and can feed the learner.
+
         held = _holding_days(d.get("ts"), now)
         if held is not None and held >= _hold_limit(d.get("est_hold_days")):
             outcome = "win" if pnl_pct > 0 else "loss"
@@ -325,13 +393,47 @@ def run_screen_scan(
     }
 
 
+def manage_open(journal: Optional[Journal] = None) -> dict[str, Any]:
+    """The fast, light heartbeat for the 10-min intraday loop: re-price every OPEN
+    trade and resolve any that hit a level, broke their thesis, or expired. Opens
+    nothing new and doesn't screen the universe, so it's cheap enough to run often.
+    Only snapshots equity/insights when it actually closes something, to keep the
+    committed-back journal from churning on every idle tick.
+    """
+    journal = journal or get_journal()
+    scan_id = datetime.now(timezone.utc).strftime("manage-%Y%m%dT%H%M%S")
+    opens = journal.open_decisions()
+    syms = {d["symbol"] for d in opens}
+
+    prices: dict[str, float] = {}
+    for s in syms:
+        try:
+            from app.collectors.market_collector import fetch_history
+            prices[s] = float(fetch_history(s, period="1y")["Close"].iloc[-1])
+        except Exception:
+            continue
+
+    closed = _resolve_open(journal, prices)
+    if closed:
+        snapshot = get_broker().snapshot(prices)
+        bench = BuyHold(starting_cash=snapshot.get("starting_cash") or 100_000.0).mark(prices)
+        journal.record_equity(scan_id, snapshot, benchmark=bench)
+        from app.status.insights import compute_insights
+        journal.record_insight(compute_insights(journal))
+    return {"scan_id": scan_id, "managed": len(syms), "closed": closed,
+            "open": len(journal.open_decisions())}
+
+
 if __name__ == "__main__":
     import json
     import os
 
     sess = os.environ.get("SCAN_SESSION")
     llm_top = int(os.environ.get("SCAN_LLM_TOP", "0"))  # LLM-reason the top-N picks
-    if os.environ.get("SCAN_MODE", "screen") == "watchlist":
+    mode = os.environ.get("SCAN_MODE", "screen")
+    if mode == "manage":
+        summary = manage_open()
+    elif mode == "watchlist":
         summary = scan_watchlist(session=sess)
     else:
         summary = run_screen_scan(session=sess, llm_top=llm_top)
