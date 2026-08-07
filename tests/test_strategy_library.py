@@ -83,6 +83,16 @@ def test_shorts_gated_outside_a_bear_regime():
     assert route(_ctx(df, ind, "down", "bear"), "short") is not None # bear → allowed
 
 
+def test_strategy_lab_backtests_all_strategies():
+    """The validation backtester runs each library strategy and reports its edge."""
+    from app.backtester.strategy_lab import backtest
+
+    r = backtest(symbols=["A.NS", "B.NS"], period="2y")  # conftest stubs the data
+    assert set(r["strategies"]) == {"trend_following", "breakout", "candlestick", "mean_reversion"}
+    for a in r["strategies"].values():
+        assert "trades" in a and "win_rate" in a and "avg" in a
+
+
 def test_classify_strategy_always_returns_a_name():
     df = _df(np.full(260, 100.0))
     ctx = _ctx(df, {"last_price": 100, "rsi_14": 50, "atr_14": 2,
