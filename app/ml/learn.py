@@ -75,7 +75,10 @@ def learn(bootstrap: bool = True, save: bool = True,
 
     parts, boot_n = exp, 0
     if bootstrap and len(exp) < BLEND_UNTIL:
-        boot = build_dataset(SYMBOLS, period=PERIOD)  # cached fetches -> fast
+        # Prefer the mass-generated universe-wide cache (thousands of trades);
+        # fall back to backtesting a few symbols live if it hasn't been built yet.
+        from app.ml.generate import load_cached
+        boot = load_cached() or build_dataset(SYMBOLS, period=PERIOD)
         boot_n = len(boot)
         parts = _concat(exp, boot)
 

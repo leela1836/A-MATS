@@ -69,6 +69,16 @@ jobs:
             echo "PUBLISH=1" >> "$GITHUB_ENV"
           fi
 
+      - name: Regenerate training data from the universe (weekly — Friday post)
+        if: env.PUBLISH == '1' && env.SCAN_SESSION == 'post'
+        run: |
+          if [ "$(date -u +%u)" = "5" ]; then
+            echo "backtesting the universe into a fresh labeled dataset"
+            python -m app.ml.generate || echo "generate skipped (data unavailable)"
+          else
+            echo "not the weekly regeneration slot; using the existing cache"
+          fi
+
       - name: Learn from experience (daily — post-market)
         if: env.PUBLISH == '1' && env.SCAN_SESSION == 'post'
         run: |
@@ -85,6 +95,7 @@ jobs:
           git config user.name "amats-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f data/journal.db data/benchmark.json app/ml/models/trade_validator.json docs/data.json docs/nn.json
+          [ -f data/bootstrap.npz ] && git add -f data/bootstrap.npz || true
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
