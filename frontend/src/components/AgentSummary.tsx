@@ -154,7 +154,7 @@ export function AgentSummary() {
             <div className="text-xs text-muted">What it's good &amp; bad at <span className="text-[10px]">(edge, stored each scan)</span></div>
             {s.regime && (
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${s.regime.regime === "bull" ? "text-pass border-pass/40" : s.regime.regime === "bear" ? "text-fail border-fail/40" : "text-muted border-border"}`} title={s.regime.note}>
-                regime: {s.regime.regime}{s.regime.regime === "bull" ? " · shorts gated" : ""}
+                regime: {s.regime.regime}{s.regime.regime !== "bear" ? " · shorts gated" : ""}
               </span>
             )}
           </div>

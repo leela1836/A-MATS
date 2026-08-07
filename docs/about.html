@@ -156,9 +156,9 @@
       <li><span class="k">Small samples, said out loud.</span> A win-rate over a dozen trades is noise, not
         an edge. The dashboard shows the sample size and warns <i>“treat as directional, not proven”</i>
         rather than dressing up a coin flip as skill.</li>
-      <li><span class="k">It acts on what it learns.</span> When the market is clearly in an uptrend, the
-        agent <b>stops taking shorts</b> — the side its own record shows it loses on — instead of merely
-        noting the problem. The loop closes: findings change behaviour.</li>
+      <li><span class="k">It acts on what it learns.</span> Its record shows shorts lose in rising <i>and</i>
+        flat markets, so the agent now takes shorts <b>only in a confirmed downtrend</b> — it won't fight a
+        tape that isn't clearly bearish. The loop closes: findings change behaviour.</li>
       <li><span class="k">One position per name.</span> A setup is opened, journaled and resolved exactly
         once; trades that neither hit their stop nor target expire at market so nothing lingers unrecorded.</li>
       <li><span class="k">Survival first.</span> If the paper book draws down past a limit, it stops opening

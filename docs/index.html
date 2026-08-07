@@ -376,7 +376,7 @@ function summaryPanel(s){
     const rc=document.getElementById('insRegime');
     if(RG && RG.regime){
       const col=RG.regime==='bull'?C.green:RG.regime==='bear'?C.red:C.muted;
-      rc.textContent='regime: '+RG.regime+(RG.regime==='bull'?' · shorts gated':'');
+      rc.textContent='regime: '+RG.regime+(RG.regime!=='bear'?' · shorts gated':'');
       rc.style.color=col; rc.style.borderColor=col; rc.title=RG.note||'';
     } else rc.textContent='';
     document.getElementById('insHead').textContent=I.headline||'';

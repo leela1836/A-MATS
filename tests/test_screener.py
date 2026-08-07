@@ -182,6 +182,16 @@ def test_market_regime_classifies_from_proxy(monkeypatch):
     assert market_regime()["regime"] == "bear"     # well below it
 
 
+def test_shorts_allowed_only_in_bear():
+    """Policy: shorts permitted only in a confirmed bear tape, not bull/neutral."""
+    from app.strategies.regime import shorts_allowed
+
+    assert shorts_allowed({"regime": "bear"}) is True
+    assert shorts_allowed({"regime": "bull"}) is False
+    assert shorts_allowed({"regime": "neutral"}) is False
+    assert shorts_allowed({}) is False
+
+
 def test_benchmark_tracks_buy_and_hold(tmp_path):
     """The buy-and-hold basket initializes on first prices and marks to market."""
     from app.journal.benchmark import BuyHold

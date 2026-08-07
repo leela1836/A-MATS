@@ -21,7 +21,7 @@ from app.config import get_config
 from app.execution.paper_broker import get_broker
 from app.journal.benchmark import BuyHold
 from app.journal.store import Journal, get_journal
-from app.strategies.regime import market_regime
+from app.strategies.regime import market_regime, shorts_allowed
 from app.workflows.runner import run_cycle
 
 # Survival guard: if the paper account is down more than this from its start,
@@ -174,12 +174,12 @@ def scan_watchlist(
     closed = _resolve_open(journal, prices)
     # One trade per symbol: don't re-open a directional call already open.
     open_syms = {d["symbol"] for d in journal.open_decisions()}
-    regime = market_regime()  # don't short a bull tape
+    regime = market_regime()  # shorts only in a confirmed bear tape
     shorts_gated = 0
     for sym, fields in pending:
         if fields["direction"] in ("long", "short") and sym in open_syms:
             continue
-        if fields["direction"] == "short" and regime["regime"] == "bull":
+        if fields["direction"] == "short" and not shorts_allowed(regime):
             shorts_gated += 1
             continue
         journal.record_decision(scan_id, sym, fields)
@@ -249,9 +249,9 @@ def run_screen_scan(
     # it resolves via stop/target, the next scan is free to enter again.
     open_syms = {d["symbol"] for d in journal.open_decisions()}
 
-    # Regime gate: the live record showed shorts bleeding into a rising market, so
-    # when the tape is clearly bullish the agent stops taking the losing side. This
-    # is the agent acting on its own insight, not just displaying it.
+    # Regime gate: the live record showed shorts bleeding in bull AND neutral tapes,
+    # so the agent now takes shorts ONLY in a confirmed bear regime — acting on its
+    # own insight rather than just displaying it.
     regime = market_regime()
 
     llm_used, held_open, shorts_gated = 0, 0, 0
@@ -272,8 +272,8 @@ def run_screen_scan(
         ra = res.get("reasoned_analysis") or {}
         dec = res.get("decision") or {}
         final_dir = ra.get("direction") or dec.get("action") or "hold"
-        if final_dir == "short" and regime["regime"] == "bull":
-            shorts_gated += 1  # don't short a bull tape — regime veto
+        if final_dir == "short" and not shorts_allowed(regime):
+            shorts_gated += 1  # shorts only in a confirmed bear tape — regime veto
             continue
         src = next(
             (n.get("note", "") for n in (res.get("trace") or {}).get("nodes", [])

@@ -35,3 +35,14 @@ def market_regime(proxy: str = PROXY) -> dict[str, Any]:
     except Exception:
         pass  # fail open — never let a data glitch silently gate trades
     return out
+
+
+def shorts_allowed(regime: dict[str, Any]) -> bool:
+    """Policy: only short in a CONFIRMED bear tape.
+
+    The live record shows shorts bleed in bull AND neutral markets — the proxy sat
+    at its 200-day average for weeks while shorts kept losing. So permit shorts only
+    when the regime is decisively bearish; in bull or neutral, don't take the side
+    the agent's own history says it loses on.
+    """
+    return (regime or {}).get("regime") == "bear"
