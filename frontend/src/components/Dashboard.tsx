@@ -7,19 +7,13 @@ import {
   getAgentSummary,
   getBacktest,
   getCandles,
-  getPortfolio,
-  getTrades,
-  resetPortfolio,
   runCycle,
   type BacktestResponse,
   type Candle,
   type SRLevel,
-  type PaperTrade,
-  type Portfolio,
   type RunResult,
 } from "@/lib/api";
 import { Field, StageCard, type Status } from "./StageCard";
-import { PortfolioPanel } from "./PortfolioPanel";
 import { PipelineFlow, type Stage } from "./PipelineFlow";
 import { SignalPanel } from "./SignalPanel";
 import { TradePlan } from "./TradePlan";
@@ -46,19 +40,7 @@ export function Dashboard() {
   const [loadingBt, setLoadingBt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [trades, setTrades] = useState<PaperTrade[]>([]);
   const [selected, setSelected] = useState<string>("reasoning");
-
-  const refreshPortfolio = useCallback(async () => {
-    try {
-      const [p, t] = await Promise.all([getPortfolio(), getTrades(20)]);
-      setPortfolio(p);
-      setTrades(t);
-    } catch {
-      /* backend offline — keep last known */
-    }
-  }, []);
 
   const loadCandles = useCallback(async (sym: string) => {
     try {
@@ -92,7 +74,6 @@ export function Dashboard() {
       if (active) setOnline(ok);
     };
     ping();
-    refreshPortfolio();
     // Default the explorer to the agent's highest-conviction current holding, so
     // this panel opens on a stock the agent actually trades — not a fixed ticker.
     (async () => {
@@ -119,7 +100,7 @@ export function Dashboard() {
       clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshPortfolio, loadCandles]);
+  }, [loadCandles]);
 
   const run = async () => {
     // Yahoo tickers have no spaces: "NTPC GREEN.NS" is a typo for "NTPCGREEN.NS".
@@ -130,24 +111,13 @@ export function Dashboard() {
     try {
       const [res] = await Promise.all([runCycle(sym), loadCandles(sym)]);
       setResult(res);
-      setPortfolio(res.portfolio);
       setSelected(res.halted ? "market" : "reasoning");
-      await refreshPortfolio();
       loadBacktest(sym); // non-blocking; equity panel fills a beat later
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const reset = async () => {
-    try {
-      setPortfolio(await resetPortfolio());
-      setTrades([]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -298,9 +268,8 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* row C — portfolio + equity/backtest */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {portfolio && <PortfolioPanel portfolio={portfolio} trades={trades} onReset={reset} />}
+      {/* row C — strategy backtest (the agent's real book lives in the summary above) */}
+      <div className="mb-4">
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Strategy backtest</span>
