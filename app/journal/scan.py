@@ -298,6 +298,8 @@ def run_screen_scan(
             "source": "llm" if src.startswith("llm") else "fallback",
             "screen_score": c.score,
             "screen_rank": rank,
+            "strategy": getattr(c, "strategy", None),
+            "pattern": ma.get("pattern_bias") or getattr(c, "pattern_bias", None),
             "features": _features_json(c.symbol, ra.get("direction") or dec.get("action") or "hold"),
         })
 

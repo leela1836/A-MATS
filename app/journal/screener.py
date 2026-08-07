@@ -40,6 +40,8 @@ class Candidate:
     resistance: Optional[float]
     room_pct: float         # % room to the level the trade targets
     pattern_bias: str
+    strategy: str = "trend_following"   # library strategy that best fits the setup
+    turnover: Optional[float] = None    # ₹ avg daily turnover (liquidity)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -48,7 +50,8 @@ class Candidate:
             "nn_score": self.nn_score, "trend": self.trend,
             "last_price": self.last_price, "support": self.support,
             "resistance": self.resistance, "room_pct": round(self.room_pct, 2),
-            "pattern_bias": self.pattern_bias,
+            "pattern_bias": self.pattern_bias, "strategy": self.strategy,
+            "turnover": self.turnover,
         }
 
 
@@ -141,4 +144,33 @@ def screen_universe(
             time.sleep(throttle_s)
 
     candidates.sort(key=lambda c: -c.score)
-    return candidates[:top_n], prices
+    shortlist = _gate_and_tag(candidates[:top_n])
+    return shortlist, prices
+
+
+def _gate_and_tag(candidates: list[Candidate]) -> list[Candidate]:
+    """Apply the liquidity gate and tag each survivor with the library strategy
+    that best fits it. Fails open (keeps the candidate, tags trend_following) if
+    market data for a name can't be fetched, so a hiccup never sinks the sweep.
+    """
+    from app.collectors.market_collector import compute_indicators, fetch_history
+    from app.strategies.library import MIN_TURNOVER, build_context, classify_strategy
+    from app.strategies.library.base import avg_turnover
+    from app.strategies.regime import market_regime
+
+    regime = market_regime().get("regime", "neutral")
+    kept: list[Candidate] = []
+    for c in candidates:
+        try:
+            df = fetch_history(c.symbol, period="1y")
+            turnover = avg_turnover(df)
+            if turnover < MIN_TURNOVER:
+                continue  # liquidity gate — too thin to trade honestly
+            ind = compute_indicators(df)
+            ctx = build_context(c.symbol, df, ind, c.trend, regime, c.support, c.resistance)
+            c.strategy = classify_strategy(ctx, c.direction)
+            c.turnover = round(turnover, 0)
+        except Exception:
+            pass  # keep it, default strategy/turnover already set
+        kept.append(c)
+    return kept

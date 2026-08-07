@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS decisions (
     screen_score  REAL,                   -- composite screen score (0..1)
     screen_rank   INTEGER,                -- rank within the scan's shortlist
     features      TEXT,                   -- JSON feature vector at entry (for learning)
-    exit_reason   TEXT                    -- stop | target | expiry (how it closed)
+    exit_reason   TEXT,                   -- stop | target | expiry (how it closed)
+    strategy      TEXT,                   -- library strategy that fired (trend/reversion/breakout)
+    pattern       TEXT                    -- candlestick pattern bias at entry
 );
 CREATE TABLE IF NOT EXISTS equity (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,7 +156,8 @@ class Journal:
         'ADD COLUMN IF NOT EXISTS'), so an existing journal keeps working."""
         have = {r[1] for r in c.execute("PRAGMA table_info(decisions)").fetchall()}
         for col, decl in (("screen_score", "REAL"), ("screen_rank", "INTEGER"),
-                          ("features", "TEXT"), ("exit_reason", "TEXT")):
+                          ("features", "TEXT"), ("exit_reason", "TEXT"),
+                          ("strategy", "TEXT"), ("pattern", "TEXT")):
             if col not in have:
                 c.execute(f"ALTER TABLE decisions ADD COLUMN {col} {decl}")
         eq_have = {r[1] for r in c.execute("PRAGMA table_info(equity)").fetchall()}
@@ -195,6 +198,8 @@ class Journal:
             "screen_score": fields.get("screen_score"),
             "screen_rank": fields.get("screen_rank"),
             "features": fields.get("features"),
+            "strategy": fields.get("strategy"),
+            "pattern": fields.get("pattern"),
         }
         placeholders = ",".join("?" for _ in cols)
         with self._conn() as c:
