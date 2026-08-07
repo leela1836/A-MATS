@@ -56,6 +56,24 @@ def test_breakout_needs_a_volume_surge():
     assert sig is not None and sig.strategy == "breakout"
 
 
+def test_candlestick_pattern_is_a_routable_strategy():
+    """A strong bullish engulfing on the last bar fires the candlestick strategy."""
+    from app.strategies.library.strategies import CandlestickPattern
+
+    n = 60
+    o = np.full(n, 100.0); c = np.full(n, 100.0)
+    h = np.full(n, 101.0); l = np.full(n, 99.0)
+    o[-2], c[-2], h[-2], l[-2] = 105.0, 100.0, 106.0, 99.0   # prior bearish bar
+    o[-1], c[-1], h[-1], l[-1] = 99.0, 106.0, 107.0, 98.0    # bullish bar engulfs it
+    idx = pd.date_range("2024-01-01", periods=n, freq="D")
+    df = pd.DataFrame({"Open": o, "High": h, "Low": l, "Close": c, "Volume": 2_000_000.0}, index=idx)
+    ctx = _ctx(df, {"last_price": 106.0, "rsi_14": 55, "atr_14": 2,
+                    "ema_20": 103, "ema_50": 102, "ema_200": 100}, "sideways", "neutral", support=99.0)
+    sig = CandlestickPattern().evaluate(ctx)
+    assert sig is not None and sig.direction == "long" and sig.strategy == "candlestick"
+    assert route(ctx, "long").strategy == "candlestick"   # and the router picks it
+
+
 def test_shorts_gated_outside_a_bear_regime():
     df = _df(np.linspace(150, 100, 260))           # downtrend
     ind = {"last_price": 100, "rsi_14": 40, "atr_14": 2,

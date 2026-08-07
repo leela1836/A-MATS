@@ -55,6 +55,29 @@ class MeanReversion:
         return None
 
 
+class CandlestickPattern:
+    """Trade a strong, directional candlestick pattern (engulfing, hammer, star,
+    three-soldiers…) — the chart-pattern engine, now a first-class library
+    strategy the router can pick, not just a side signal."""
+    name = "candlestick"
+    kind = "pattern"
+    MIN_STRENGTH = 0.45
+
+    def evaluate(self, ctx: Context) -> Optional[StratSignal]:
+        from app.strategies.candlesticks import detect
+        pats = [p for p in detect(ctx.df, ctx.trend) if p.direction in ("bullish", "bearish")]
+        if not pats:
+            return None
+        top = pats[0]  # detect() returns strongest first
+        if top.strength < self.MIN_STRENGTH:
+            return None
+        direction = "long" if top.direction == "bullish" else "short"
+        conf = round(min(0.45 + top.strength * 0.4, 0.85), 3)
+        e, s, t = _levels(direction, ctx.price, ctx.atr, rr=1.8)
+        return StratSignal(self.name, direction, conf, e, s, t,
+                           f"{top.name} ({top.direction}, strength {top.strength:.2f})")
+
+
 class Breakout:
     """Enter on a volume-confirmed break of a support/resistance level."""
     name = "breakout"

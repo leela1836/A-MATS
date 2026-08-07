@@ -11,11 +11,13 @@ from __future__ import annotations
 from typing import Optional
 
 from app.strategies.library.base import Context, StratSignal
-from app.strategies.library.strategies import Breakout, MeanReversion, TrendFollowing
+from app.strategies.library.strategies import (
+    Breakout, CandlestickPattern, MeanReversion, TrendFollowing,
+)
 from app.strategies.regime import shorts_allowed
 
 # Registry — order is the tie-breaker priority when confidences match.
-STRATEGIES = [TrendFollowing(), Breakout(), MeanReversion()]
+STRATEGIES = [TrendFollowing(), Breakout(), CandlestickPattern(), MeanReversion()]
 
 
 def route(ctx: Context, want_direction: Optional[str] = None) -> Optional[StratSignal]:
