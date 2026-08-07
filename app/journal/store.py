@@ -361,6 +361,29 @@ class Journal:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    def strategy_performance(self) -> dict[str, dict[str, Any]]:
+        """Per-strategy LIVE edge from closed trades, net of round-trip costs —
+        the evidence the champion/challenger roster promotes and demotes on."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT strategy, pnl_pct FROM decisions WHERE status='closed' "
+                "AND direction IN ('long','short') AND pnl_pct IS NOT NULL "
+                "AND strategy IS NOT NULL"
+            ).fetchall()
+        out: dict[str, dict[str, Any]] = {}
+        buckets: dict[str, list[float]] = {}
+        for r in rows:
+            buckets.setdefault(r["strategy"], []).append(float(r["pnl_pct"]) - ROUND_TRIP_COST_PCT)
+        for name, nets in buckets.items():
+            wins = sum(1 for x in nets if x > 0)
+            out[name] = {
+                "trades": len(nets),
+                "win_rate": round(100 * wins / len(nets), 1) if nets else None,
+                "avg": round(sum(nets) / len(nets), 3) if nets else None,
+                "net_pct": round(sum(nets), 2),
+            }
+        return out
+
     def realized_pnl_series(self) -> list[tuple[str, float]]:
         """(exit_ts, pnl_pct) for every closed directional trade, oldest first —
         the persisted, honest record of how the agent's trades actually turned out."""

@@ -128,6 +128,15 @@
   .edge .el{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:1px}
   .edge .em{font-size:10px;color:var(--muted);font-family:ui-monospace,monospace;margin-top:1px}
   .issug{font-size:11.5px;color:var(--accent);line-height:1.45}
+  .sroster{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
+  .rrow{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12px;flex-wrap:wrap}
+  .rname{font-weight:600;min-width:118px}
+  .rbadge{font-size:9.5px;font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.04em;
+    border-radius:5px;padding:2px 7px;border:1px solid}
+  .rbadge.live{color:var(--green);border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.08)}
+  .rbadge.shadow{color:var(--amber);border-color:rgba(240,136,62,.4);background:rgba(240,136,62,.08)}
+  .rbadge.benched{color:var(--muted);border-color:var(--border)}
+  .rmeta{color:var(--muted);font-family:ui-monospace,monospace;font-size:10.5px}
   .sfactors{border-top:1px solid var(--border);margin-top:12px;padding-top:10px}
   .flink{color:var(--accent);font-size:12px;cursor:pointer;user-select:none}
   .fchips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
@@ -195,6 +204,10 @@
       <p class="inscaveat" id="insCaveat"></p>
       <div class="edgegrid" id="edgegrid"></div>
       <div class="issug" id="insSug"></div>
+    </div>
+    <div class="sroster" id="sroster" hidden>
+      <div class="slabel">Strategy roster <span style="font-size:9px;text-transform:none;letter-spacing:0">(champion / challenger — earns live status out-of-sample)</span></div>
+      <div id="rosterrows"></div>
     </div>
     <div class="sfactors">
       <span class="flink" id="ftoggle"></span>
@@ -412,6 +425,19 @@ function summaryPanel(s){
       +edge('NN&lt;'+th,I.nn_gate.lo,C.muted);
     document.getElementById('insSug').textContent=I.suggestion?('↳ '+I.suggestion):'';
   } else si.hidden=true;
+
+  // strategy roster — champion/challenger scoreboard
+  const R=s.strategies||[], sr=document.getElementById('sroster');
+  if(R.length){
+    sr.hidden=false;
+    const edge=v=>v==null?'—':(v>=0?'+':'')+v+'%';
+    document.getElementById('rosterrows').innerHTML=R.map(x=>{
+      const live=x.live_trades? `live ${edge(x.live_avg)}/tr · ${x.live_trades} tr` : 'no live trades yet';
+      return `<div class="rrow"><span class="rname">${esc(x.name)}</span>`
+        +`<span class="rbadge ${x.status}">${esc(x.status)}</span>`
+        +`<span class="rmeta">backtest ${edge(x.backtest_edge)}/tr · ${esc(live)}</span></div>`;
+    }).join('');
+  } else sr.hidden=true;
 
   const ft=document.getElementById('ftoggle'), fb=document.getElementById('fbody'), tracked=F.tracked||[];
   const setTog=()=>ft.textContent=(fb.hidden?'▸':'▾')+` Factors it tracks (${tracked.length}) & what's missing`;

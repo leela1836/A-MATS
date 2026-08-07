@@ -129,9 +129,23 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
     model = _model_meta()
     bench = _benchmark(journal, portfolio["return_percent"])
     from app.status.insights import compute_insights
+    from app.strategies.library.roster import get_roster
     from app.strategies.regime import market_regime
     insights = compute_insights(journal)
     regime = market_regime()
+    # champion/challenger scoreboard: roster status + backtest seed + live edge
+    roster, perf = get_roster(), journal.strategy_performance()
+    strategies = [
+        {
+            "name": name, "status": info.get("status"),
+            "backtest_edge": info.get("backtest_edge"),
+            "live_trades": perf.get(name, {}).get("trades", 0),
+            "live_avg": perf.get(name, {}).get("avg"),
+            "live_win": perf.get(name, {}).get("win_rate"),
+            "note": info.get("note"),
+        }
+        for name, info in roster.items()
+    ]
     # a compact spread trend (agent-minus-hold over the stored snapshots)
     spread_trend = [
         {"ts": r["ts"], "spread_pct": r["spread_pct"]}
@@ -145,6 +159,7 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
         "benchmark": bench,
         "insights": {**insights, "spread_trend": spread_trend},
         "regime": regime,
+        "strategies": strategies,
         "track_record": stats,
         "portfolio": {**portfolio, "sizing_note": "each closed trade modeled at 10% of starting capital"},
         "open_positions": [

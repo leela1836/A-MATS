@@ -21,6 +21,7 @@ from app.config import get_config
 from app.execution.paper_broker import get_broker
 from app.journal.benchmark import BuyHold
 from app.journal.store import Journal, get_journal
+from app.strategies.library.roster import is_tradable
 from app.strategies.regime import market_regime, shorts_allowed
 from app.workflows.runner import run_cycle
 
@@ -322,10 +323,15 @@ def run_screen_scan(
     # own insight rather than just displaying it.
     regime = market_regime()
 
-    llm_used, held_open, shorts_gated = 0, 0, 0
+    llm_used, held_open, shorts_gated, benched_skipped = 0, 0, 0, 0
     for rank, c in enumerate(candidates, start=1):
         if c.symbol in open_syms:
             held_open += 1
+            continue
+        # Champion/challenger gate: a strategy validated as a loser is benched —
+        # it may still have labelled the setup, but it doesn't get to trade it.
+        if not is_tradable(getattr(c, "strategy", "trend_following")):
+            benched_skipped += 1
             continue
         # Reason with the LLM only on the strongest few picks — real reasoning
         # where it matters, within the daily quota; deterministic for the rest.
@@ -384,6 +390,7 @@ def run_screen_scan(
         "closed_this_scan": closed,
         "held_open": held_open,
         "shorts_gated": shorts_gated,
+        "benched_skipped": benched_skipped,
         "regime": regime["regime"],
         "survival_halt": survival_halt,
         "equity": snapshot.get("equity"),

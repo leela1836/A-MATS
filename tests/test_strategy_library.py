@@ -93,6 +93,29 @@ def test_strategy_lab_backtests_all_strategies():
         assert "trades" in a and "win_rate" in a and "avg" in a
 
 
+def test_roster_promotes_and_demotes_on_live_edge(tmp_path, monkeypatch):
+    """A shadow strategy that proves positive live is promoted; a live one that
+    goes negative is benched — governance runs on out-of-sample results, not vibes."""
+    from app.journal.store import Journal
+    from app.strategies.library import roster
+
+    monkeypatch.setattr(roster, "ROSTER_FILE", tmp_path / "roster.json")
+    j = Journal(path=tmp_path / "j.db")
+
+    def add(strategy, pnl, n):
+        for _ in range(n):
+            did = j.record_decision("s", "X.NS", {
+                "direction": "long", "strategy": strategy, "entry_price": 100.0})
+            j.close_decision(did, 100.0 + pnl, "win" if pnl > 0 else "loss", pnl)
+
+    add("mean_reversion", 3.0, 35)     # clearly positive net of costs
+    add("trend_following", -3.0, 35)   # clearly negative
+    r = roster.evaluate_and_update(journal=j, save=True)
+    assert r["mean_reversion"]["status"] == "live"      # promoted
+    assert r["trend_following"]["status"] == "benched"  # demoted
+    assert roster.is_tradable("candlestick") is False   # validated loser stays benched
+
+
 def test_classify_strategy_always_returns_a_name():
     df = _df(np.full(260, 100.0))
     ctx = _ctx(df, {"last_price": 100, "rsi_14": 50, "atr_14": 2,
