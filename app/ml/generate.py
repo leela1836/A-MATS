@@ -24,9 +24,30 @@ CACHE = Path(__file__).resolve().parent.parent.parent / "data" / "bootstrap.npz"
 
 def generate(symbols: Optional[list[str]] = None, period: str = "5y",
              save: bool = True) -> Dataset:
-    """Backtest `symbols` (default: the full universe) and emit a labeled Dataset."""
+    """Backtest `symbols` (default: the full universe) and emit a labeled Dataset.
+
+    Backtests each symbol independently so a delisted/unfetchable name is skipped,
+    not fatal — a universe-wide sweep must survive the odd bad ticker.
+    """
     symbols = symbols or load_universe()
-    ds = build_dataset(symbols, period=period)
+    Xs, ys, dates, syms, rets = [], [], [], [], []
+    for sym in symbols:
+        try:
+            ds = build_dataset([sym], period=period)
+        except Exception:
+            continue  # delisted / no instrument / bad feed — skip
+        if len(ds):
+            Xs.append(ds.X)
+            ys.append(ds.y)
+            rets.append(ds.returns)
+            dates.extend(ds.dates)
+            syms.extend(ds.symbols)
+
+    if not Xs:
+        return Dataset(np.empty((0, len(FEATURE_NAMES))), np.empty(0),
+                       [], [], np.empty(0), list(FEATURE_NAMES))
+    ds = Dataset(np.vstack(Xs), np.concatenate(ys), dates, syms,
+                 np.concatenate(rets), list(FEATURE_NAMES))
     if save and len(ds):
         CACHE.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
