@@ -1,0 +1,30 @@
+{
+  "trend_following": {
+    "status": "live",
+    "backtest_edge": -0.34,
+    "note": "incumbent \u2014 on probation",
+    "live_trades": 0,
+    "live_avg": null
+  },
+  "mean_reversion": {
+    "status": "shadow",
+    "backtest_edge": 0.22,
+    "note": "only validated edge \u2014 on trial",
+    "live_trades": 0,
+    "live_avg": null
+  },
+  "breakout": {
+    "status": "benched",
+    "backtest_edge": -0.86,
+    "note": "validated loser",
+    "live_trades": 0,
+    "live_avg": null
+  },
+  "candlestick": {
+    "status": "benched",
+    "backtest_edge": -0.36,
+    "note": "validated loser",
+    "live_trades": 0,
+    "live_avg": null
+  }
+}
