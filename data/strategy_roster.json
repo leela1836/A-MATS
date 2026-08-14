@@ -3,8 +3,8 @@
     "status": "live",
     "backtest_edge": -0.34,
     "note": "incumbent \u2014 on probation",
-    "live_trades": 11,
-    "live_avg": -0.871
+    "live_trades": 17,
+    "live_avg": -0.859
   },
   "mean_reversion": {
     "status": "shadow",
