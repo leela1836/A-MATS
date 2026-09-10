@@ -1,8 +1,8 @@
 {
   "trend_following": {
-    "status": "live",
+    "status": "benched",
     "backtest_edge": -0.34,
-    "note": "manually re-enabled for fresh paper run on 2026-09-11; monitor live edge",
+    "note": "demoted \u2014 live edge -0.98%/trade over 44",
     "live_trades": 44,
     "live_avg": -0.977
   },
