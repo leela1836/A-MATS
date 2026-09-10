@@ -18,6 +18,7 @@
     --bg:#0a0d13; --surface:#141a26; --surface2:#1b2230; --border:#232c3d;
     --border2:#2e3a54; --fg:#e9eef5; --muted:#8b98ab; --accent:#4f9dff; --green:#3fb950;
     --red:#f85149; --amber:#f0883e; --pos:#2f7ff0; --neg:#f85149;
+    --amber-bg:rgba(240,136,62,.08); --amber-border:rgba(240,136,62,.3); --amber-text:#f0b58e;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--fg);overflow-x:hidden;
@@ -66,6 +67,9 @@
   <div class="sub">A pure-numpy MLP that scores P(win) for each candidate trade and vetoes the weak ones. This runs its forward pass live in your browser.</div>
   <div class="nav"><a href="./">← Track record</a><a href="./about.html">About</a><a class="active" href="./nn.html">Neural-net health</a></div>
 
+  <div id="auc-warn" hidden style="background:var(--amber-bg);border:1px solid var(--amber-border);color:var(--amber-text);border-radius:10px;padding:9px 12px;font-size:12px;margin-bottom:12px;line-height:1.5">
+    ⚠ <b>Model not yet trusted (AUC ≤ 0.55 — coin-flip territory).</b> The screener is ignoring its score and ranking candidates on confidence + room-to-target instead. The model will be reactivated automatically once it earns OOS AUC &gt; 0.55 through more live training data.
+  </div>
   <div class="tiles" id="tiles"></div>
 
   <div class="card">
@@ -99,8 +103,12 @@ let M=null, DIR='long';
 
 function tiles(m){
   const meta=m.meta||{};
+  const auc=meta.oos_auc;
+  const aucTrusted=auc!=null&&auc>0.55;
+  const aucCol=aucTrusted?C.green:C.red;
   const t=[
-    ['OOS AUC',(meta.oos_auc??'—'),meta.oos_auc>0.55?C.green:C.fg],
+    ['OOS AUC',(auc??'—'),aucCol],
+    ['Screener weight',aucTrusted?'35% active':'⚠ sidelined',aucTrusted?C.green:C.amber],
     ['Win rate',meta.oos_base_win_rate!=null?`${Math.round(meta.oos_base_win_rate*100)}→${Math.round((meta.oos_gated_win_rate||0)*100)}%`:'—',C.fg],
     ['Coverage',meta.oos_coverage!=null?Math.round(meta.oos_coverage*100)+'%':'—',C.fg],
     ['Threshold',m.threshold!=null?m.threshold.toFixed(3):'—',C.fg],
@@ -108,6 +116,9 @@ function tiles(m){
   ];
   document.getElementById('tiles').innerHTML=t.map(([l,v,c])=>
     `<div class="tile"><div class="v mono" style="color:${c}">${v}</div><div class="l">${l}</div></div>`).join('');
+  // Show a callout when the model is below the trust threshold
+  const warn=document.getElementById('auc-warn');
+  if(warn) warn.hidden=aucTrusted;
 }
 
 function graph(m,act){
