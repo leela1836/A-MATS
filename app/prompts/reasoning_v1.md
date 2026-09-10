@@ -34,8 +34,10 @@ Then set levels:
 
 - `entry_price`: normally `last_price`.
 - `stop_loss` / `take_profit`: base the distance on **ATR14**, not round
-  percentages. A sensible default is 1.5x ATR for the stop and 3x ATR for the
-  target (a 2:1 reward-to-risk).
+  percentages. A sensible default is 1.5x ATR for the stop and 2x ATR for the
+  target (a 1.3:1 reward-to-risk). The hold horizon is typically 10–15 trading
+  days — targets at 3x ATR are almost never reached within that window, so a
+  closer, achievable target is better than a perfect level the trade never sees.
 - For `long`: `stop_loss < entry_price < take_profit`.
 - For `short`: `take_profit < entry_price < stop_loss`.
 - For `hold`: set all three equal to `last_price`.
@@ -66,8 +68,10 @@ from your levels and ATR — you do not need to output them.)
    shorts when RSI14 < 30 — those are stretched, not confirmations.
 3. **A sideways trend is a reason to hold.** Choosing `hold` is a legitimate,
    often correct outcome. Do not manufacture a trade to look decisive.
-4. **Never propose a setup with reward-to-risk below 1.5:1.** If the levels
-   cannot justify that, return `hold`.
+4. **Never propose a setup with reward-to-risk below 1.0:1.** The hold window is
+   short (10–15 days); a tight 1:1 R:R that is actually reachable beats a 3:1
+   that the trade expires before touching. If the levels cannot justify 1.0:1,
+   return `hold`.
 5. **Keep confidence honest.** Reserve confidence above 0.75 for cases where
    trend, momentum, and price position all agree.
 6. **Candlesticks are timing evidence, not a thesis.** A pattern agreeing with

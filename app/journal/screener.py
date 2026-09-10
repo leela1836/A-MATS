@@ -82,13 +82,33 @@ def _room_pct(ma: MarketAnalysis) -> float:
     return 0.0
 
 
+def _nn_reliable() -> bool:
+    """True only when the saved model has a trustworthy out-of-sample AUC (>0.55).
+
+    The validator is coin-flip quality (AUC ~0.517) until the agent has built up
+    enough live experience to retrain it above the noise floor. Using it as a 40%
+    weight before that point inverts the screener — lower-scoring (but actually
+    better) setups get pushed down the shortlist. So we only include the NN signal
+    when it has actually earned its place.
+    """
+    try:
+        from app.ml.validator import load_validator
+        v = load_validator()
+        if v is None:
+            return False
+        return float(v.meta.get("oos_auc", 0.0)) > 0.55
+    except Exception:
+        return False
+
+
 def _score(ma: MarketAnalysis) -> float:
     """Blend the dependent signals into one comparable 0..1 number.
 
-    Weights favour the learned validator and the rule engine's own confidence,
-    with candlestick agreement and room-to-target as tie-breakers.
+    When the learned validator has a trustworthy AUC (>0.55) it gets a 35%
+    weight; otherwise we drop it and redistribute its weight to confidence and
+    room-to-target, which are the two signals that have proven reliable in the
+    live record. Candlestick agreement remains a 20% tie-breaker either way.
     """
-    nn = ma.nn_score if ma.nn_score is not None else 0.5
     conf = ma.confidence
     want = "bullish" if ma.signal == Direction.LONG else "bearish"
     if ma.pattern_bias == want:
@@ -98,7 +118,12 @@ def _score(ma: MarketAnalysis) -> float:
     else:
         agree = 0.0  # candlesticks contradict the signal
     room = max(0.0, min(_room_pct(ma) / 10.0, 1.0))  # 10%+ room = full marks
-    return round(0.40 * nn + 0.30 * conf + 0.20 * agree + 0.10 * room, 4)
+
+    if ma.nn_score is not None and _nn_reliable():
+        # Model has earned its weight: nn 35%, conf 30%, agree 20%, room 15%.
+        return round(0.35 * ma.nn_score + 0.30 * conf + 0.20 * agree + 0.15 * room, 4)
+    # Model not trustworthy yet: conf 50%, room 30%, agree 20%.
+    return round(0.50 * conf + 0.30 * room + 0.20 * agree, 4)
 
 
 def _to_candidate(ma: MarketAnalysis) -> Candidate:

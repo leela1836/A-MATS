@@ -7,9 +7,9 @@
     "live_avg": -0.977
   },
   "mean_reversion": {
-    "status": "shadow",
+    "status": "live",
     "backtest_edge": 0.22,
-    "note": "only validated edge \u2014 on trial",
+    "note": "promoted \u2014 only validated positive edge; trend_following benched so this is now the primary strategy",
     "live_trades": 0,
     "live_avg": null
   },

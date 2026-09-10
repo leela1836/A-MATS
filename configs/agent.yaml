@@ -114,7 +114,11 @@ evaluation_engine:
   temperature: 0.1
   prompt_version: v1
   scoring_method: weighted  # Options: simple, weighted, ensemble
-  min_pass_score: 0.6
+  # Threshold is against the weighted score (R:R=50%, conf=25%, ordering=25%).
+  # A setup with a clean 1.3:1 R:R and moderate confidence scores ~0.55, which
+  # should pass — the old equal-weight 0.6 was blocking good setups because
+  # confidence (a noisy signal in live data) dragged the score down.
+  min_pass_score: 0.50
   dimensions:
     - risk_reward
     - technical_alignment

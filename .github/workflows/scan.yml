@@ -30,9 +30,9 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
@@ -55,7 +55,10 @@ jobs:
           # Real market data from the cloud (Upstox Analytics Token as a repo secret).
           UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
           # LLM-reason the strongest N picks per SCREEN. 0 = fully deterministic.
-          SCAN_LLM_TOP: "5"
+          # Live data shows LLM calls produce 54% win rate vs 43% deterministic —
+          # raising this from 5 to 10 costs ~10 more API calls/day but meaningfully
+          # shifts the trade mix toward higher-quality setups.
+          SCAN_LLM_TOP: "10"
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           OUT=$(python -m app.journal.scan)

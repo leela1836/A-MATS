@@ -227,7 +227,7 @@ def _rule_based(ma: MarketAnalysis) -> ReasonedAnalysis:
         stop, take = entry, entry
     else:
         stop_dist = 1.5 * atr if atr > 0 else entry * 0.03
-        take_dist = 3.0 * atr if atr > 0 else entry * 0.06
+        take_dist = 2.0 * atr if atr > 0 else entry * 0.04
         if ma.signal == Direction.LONG:
             stop, take = entry - stop_dist, entry + take_dist
         else:

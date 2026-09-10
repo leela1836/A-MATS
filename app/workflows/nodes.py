@@ -121,13 +121,18 @@ def evaluation_node(state: AgentState) -> dict:
     risk = abs(r.entry_price - r.stop_loss)
     rr = reward / risk if risk else 0.0
 
+    # R:R is the most reliable structural predictor of outcome; confidence is
+    # noisy in the live record (inverted at high values). Weight accordingly:
+    # R:R gets 50%, confidence 25%, levels_ordered is a hard gate not a soft score.
+    # Normalize R:R against a 2:1 target (matching the new 2x ATR take_profit).
     checks = {
         "prices_valid": 1.0,
         "levels_ordered": 1.0 if ordered else 0.0,
         "confidence": r.confidence,
-        "risk_reward": min(rr / 3.0, 1.0),  # normalize against a 3:1 target
+        "risk_reward": min(rr / 2.0, 1.0),  # normalize against a 2:1 target
     }
-    overall = 0.0 if not ordered else sum(checks.values()) / len(checks)
+    weights = {"prices_valid": 0.10, "levels_ordered": 0.15, "confidence": 0.25, "risk_reward": 0.50}
+    overall = 0.0 if not ordered else sum(weights[k] * v for k, v in checks.items())
     passed = ordered and overall >= min_pass
 
     scores = EvaluationScores(
