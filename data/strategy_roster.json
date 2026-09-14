@@ -3,8 +3,8 @@
     "status": "benched",
     "backtest_edge": -0.34,
     "note": "demoted \u2014 live edge -0.98%/trade over 44",
-    "live_trades": 44,
-    "live_avg": -0.977
+    "live_trades": 61,
+    "live_avg": -0.943
   },
   "mean_reversion": {
     "status": "live",
