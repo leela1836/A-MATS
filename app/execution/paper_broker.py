@@ -148,15 +148,60 @@ class PaperBroker:
         """Execute a market paper order. side is 'buy' or 'sell'."""
         if qty <= 0:
             raise ValueError("qty must be positive")
+        if side not in ("buy", "sell"):
+            raise ValueError("side must be 'buy' or 'sell'")
         if not (price == price and price not in (float("inf"), float("-inf"))):
             raise ValueError("price must be finite")
 
         with self._lock:
             delta = qty if side == "buy" else -qty
             pos = self._pf.positions.get(symbol, Position(symbol=symbol))
+            risk = get_config("risk")
+            portfolio_cfg = risk.get("portfolio", {})
             new_qty, new_avg, realized = _apply_fill(pos.qty, pos.avg_price, delta, price)
 
+            # The paper broker is the final safety boundary: never spend the
+            # reserve, open shorts when leverage is disabled, or exceed the
+            # configured gross exposure/concentration limits.
             commission = self._commission()
+            projected_cash = self._pf.cash + (-delta) * price - commission
+            reserve = self._pf.starting_cash * float(
+                portfolio_cfg.get("min_cash_reserve_percent", 0.0)
+            ) / 100.0
+            if projected_cash < reserve and delta > 0:
+                raise ValueError("order would breach the minimum cash reserve")
+            if new_qty < 0 and float(portfolio_cfg.get("max_leverage", 1.0)) <= 1.0:
+                raise ValueError("short positions are disabled by max_leverage")
+
+            projected_positions = {
+                s: p for s, p in self._pf.positions.items() if s != symbol
+            }
+            if abs(new_qty) > 1e-9:
+                projected_positions[symbol] = Position(symbol, new_qty, new_avg)
+            equity_after = projected_cash + sum(
+                p.qty * (price if s == symbol else p.avg_price)
+                for s, p in projected_positions.items()
+            )
+            if equity_after <= 0:
+                raise ValueError("order would make portfolio equity non-positive")
+            max_leverage = float(portfolio_cfg.get("max_leverage", 1.0))
+            gross = sum(
+                abs(p.qty) * (price if s == symbol else p.avg_price)
+                for s, p in projected_positions.items()
+            )
+            if gross > equity_after * max_leverage + 1e-9:
+                raise ValueError("order would breach maximum portfolio leverage")
+            max_concentration = float(
+                portfolio_cfg.get("max_position_concentration", 100.0)
+            ) / 100.0
+            symbol_value = abs(new_qty) * price
+            if symbol_value > equity_after * max_concentration + 1e-9:
+                raise ValueError("order would breach maximum position concentration")
+            max_concurrent = int(risk.get("per_trade", {}).get("max_concurrent_trades", 10**9))
+            open_count = sum(1 for p in projected_positions.values() if not p.is_flat())
+            if open_count > max_concurrent:
+                raise ValueError("order would breach maximum concurrent trades")
+
             # Cash: buys spend, sells receive; commission always debits.
             # Realized P&L is already embedded in these price flows (buy low /
             # sell high), so it is reported but NOT added to cash separately.

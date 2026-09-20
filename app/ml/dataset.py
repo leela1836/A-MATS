@@ -20,6 +20,7 @@ import numpy as np
 from app.backtester.engine import run_backtest
 from app.collectors.market_collector import fetch_history
 from app.ml.features import FEATURE_NAMES, extract
+from app.journal.store import ROUND_TRIP_COST_PCT
 
 
 @dataclass
@@ -57,10 +58,13 @@ def build_dataset(
             window = df.iloc[:e]  # decision bar is e-1; inclusive slice = :e
             feats = extract(window, t.direction, params)
             rows_X.append(feats)
-            rows_y.append(1 if t.pnl > 0 else 0)
+            # Match the journal/equity convention: a gross price gain smaller
+            # than round-trip costs is a losing trade for the validator.
+            net_return = t.return_pct - ROUND_TRIP_COST_PCT
+            rows_y.append(1 if net_return > 0 else 0)
             dates.append(t.entry_date)
             syms.append(sym)
-            rets.append(t.return_pct)
+            rets.append(net_return)
 
     if not rows_X:
         return Dataset(np.empty((0, len(FEATURE_NAMES))), np.empty(0),

@@ -141,7 +141,7 @@ def run_backtest(
             exit_price, reason = _check_exit(position, bar)
             if exit_price is not None:
                 equity += _close_pnl(position, exit_price, commission)
-                result.trades.append(_record(position, date, exit_price, reason, i))
+                result.trades.append(_record(position, date, exit_price, reason, i, commission))
                 position = None
 
         # ── 2. Fill a pending order at THIS bar's open (decided last bar) ──
@@ -200,7 +200,7 @@ def run_backtest(
             # Signal reversed: exit at next open rather than wait for a stop.
             close = float(bar["Close"])
             equity += _close_pnl(position, close, commission)
-            result.trades.append(_record(position, date, close, "signal_flip", i))
+            result.trades.append(_record(position, date, close, "signal_flip", i, commission))
             position = None
 
         # ── 4. Mark to market ──
@@ -216,7 +216,7 @@ def run_backtest(
         last_close = float(df.iloc[-1]["Close"])
         equity += _close_pnl(position, last_close, commission)
         result.trades.append(
-            _record(position, str(df.index[-1].date()), last_close, "end_of_data", len(df) - 1)
+            _record(position, str(df.index[-1].date()), last_close, "end_of_data", len(df) - 1, commission)
         )
         result.equity_curve[-1]["equity"] = round(equity, 2)
 
@@ -257,9 +257,10 @@ def _close_pnl(pos: OpenPosition, exit_price: float, commission: float) -> float
     return pos.qty * (exit_price - pos.entry_price) * sign - commission
 
 
-def _record(pos: OpenPosition, date: str, exit_price: float, reason: str, i: int) -> BacktestTrade:
+def _record(pos: OpenPosition, date: str, exit_price: float, reason: str, i: int,
+            commission: float = 0.0) -> BacktestTrade:
     sign = 1 if pos.direction == Direction.LONG else -1
-    pnl = pos.qty * (exit_price - pos.entry_price) * sign
+    pnl = pos.qty * (exit_price - pos.entry_price) * sign - 2.0 * commission
     cost = pos.qty * pos.entry_price
     return BacktestTrade(
         symbol="", direction=pos.direction.value, entry_date=pos.entry_date,

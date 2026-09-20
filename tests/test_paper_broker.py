@@ -81,11 +81,21 @@ def test_persistence_round_trip(tmp_path):
 
 
 def test_reset_restores_starting_cash(broker):
-    broker.place_order("ITC.NS", "buy", 100, 450.0)
+    broker.place_order("ITC.NS", "buy", 40, 450.0)
     broker.reset()
     snap = broker.snapshot()
     assert snap["cash"] == snap["starting_cash"]
     assert snap["open_positions"] == []
+
+
+def test_buy_cannot_breach_cash_reserve(broker):
+    with pytest.raises(ValueError, match="cash reserve"):
+        broker.place_order("ITC.NS", "buy", 250, 400.0)
+
+
+def test_new_short_is_rejected_when_leverage_is_disabled(broker):
+    with pytest.raises(ValueError, match="short positions"):
+        broker.place_order("ITC.NS", "sell", 1, 400.0)
 
 
 def test_apply_fill_flip_through_zero():

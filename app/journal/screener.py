@@ -189,15 +189,15 @@ def screen_universe(
 
     candidates.sort(key=lambda c: -c.score)
     shortlist = _gate_and_tag([
-        c for c in candidates[:top_n] if qualifies_for_trade(c)
-    ])
+        c for c in candidates if qualifies_for_trade(c)
+    ][:top_n])
     return shortlist, prices
 
 
 def _gate_and_tag(candidates: list[Candidate]) -> list[Candidate]:
     """Apply the liquidity gate and tag each survivor with the library strategy
-    that best fits it. Fails open (keeps the candidate, tags trend_following) if
-    market data for a name can't be fetched, so a hiccup never sinks the sweep.
+    that best fits it. Missing history fails closed because liquidity cannot be
+    verified safely.
     """
     from app.collectors.market_collector import compute_indicators, fetch_history
     from app.strategies.library import MIN_TURNOVER, build_context, classify_strategy
@@ -219,6 +219,6 @@ def _gate_and_tag(candidates: list[Candidate]) -> list[Candidate]:
             c.strategy = classify_strategy(ctx, c.direction)
             c.turnover = round(turnover, 0)
         except Exception:
-            pass  # keep it, default strategy/turnover already set
+            continue
         kept.append(c)
     return kept

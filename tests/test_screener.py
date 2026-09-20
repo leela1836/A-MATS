@@ -79,6 +79,29 @@ def test_bad_ticker_is_skipped_not_fatal(monkeypatch):
     assert [c.symbol for c in cands] == ["GOOD.NS"]
 
 
+def test_history_failure_fails_closed(monkeypatch):
+    import app.journal.screener as screener
+    from app.models.state import Direction, MarketAnalysis
+
+    ma = MarketAnalysis(
+        symbol="NOHISTORY.NS", last_price=100.0, trend="up", signal=Direction.LONG,
+        confidence=0.8, indicators={}, resistance=110.0,
+    )
+
+    class _Provider:
+        def get_analysis(self, _symbol):
+            return ma
+
+    monkeypatch.setattr(screener, "get_market_provider", lambda: _Provider())
+    monkeypatch.setattr(
+        "app.collectors.market_collector.fetch_history",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("history down")),
+    )
+
+    cands, _ = screen_universe(["NOHISTORY.NS"], top_n=5)
+    assert cands == []
+
+
 def test_screen_scan_does_not_reopen_already_open_symbols(journal):
     """Scanning the same names twice must NOT create duplicate open trades —
     one open decision per symbol until it resolves."""

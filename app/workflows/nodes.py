@@ -175,6 +175,32 @@ def risk_node(state: AgentState) -> dict:
             risk_per_trade_percent=0.0, reason="no position (hold)",
         )}
 
+    from app.execution.paper_broker import get_broker
+    portfolio = risk_cfg.get("portfolio", {})
+    snapshot = get_broker().snapshot()
+    max_drawdown = float(portfolio.get("max_drawdown_percent", 100.0))
+    if portfolio.get("halt_on_drawdown", False) and snapshot["return_percent"] <= -max_drawdown:
+        reason = f"portfolio drawdown {snapshot['return_percent']:.2f}% exceeds {max_drawdown:.2f}%"
+        return {
+            "risk_assessment": RiskAssessment(
+                approved=False, position_size_percent=0.0,
+                risk_per_trade_percent=0.0, reason=reason,
+            ),
+            "halted": True,
+            "halt_reason": f"risk rejected: {reason}",
+        }
+    max_concurrent = int(per_trade.get("max_concurrent_trades", 10**9))
+    if len(snapshot.get("open_positions", [])) >= max_concurrent:
+        reason = f"already holding {len(snapshot['open_positions'])} concurrent positions"
+        return {
+            "risk_assessment": RiskAssessment(
+                approved=False, position_size_percent=0.0,
+                risk_per_trade_percent=0.0, reason=reason,
+            ),
+            "halted": True,
+            "halt_reason": f"risk rejected: {reason}",
+        }
+
     size = float(sizing.get("default_size_percent", 2.0))
     max_size = float(sizing.get("max_size_percent", 10.0))
     size = min(size * (1.0 + r.confidence), max_size)
