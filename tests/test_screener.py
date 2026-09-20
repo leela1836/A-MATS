@@ -35,6 +35,26 @@ def test_top_n_caps_the_shortlist():
     assert len(cands) <= 1
 
 
+def test_run_screen_scan_skips_weak_candidates(journal, monkeypatch):
+    from app.journal import scan as scanmod
+    import app.journal.screener as screener
+    from app.journal.screener import Candidate
+
+    weak = Candidate(
+        symbol="WEAK.NS", direction="long", score=0.35, confidence=0.31,
+        nn_score=None, trend="up", last_price=100.0, support=95.0,
+        resistance=106.0, room_pct=6.0, pattern_bias="none", strategy="trend_following",
+    )
+
+    monkeypatch.setattr(screener, "screen_universe", lambda *a, **k: ([weak], {"WEAK.NS": 100.0}))
+    monkeypatch.setattr(scanmod, "run_cycle", lambda *a, **k: {"decision": {"action": "buy"}})
+
+    summary = scanmod.run_screen_scan(universe=["WEAK.NS"], top_n=1, journal=journal)
+
+    assert summary["shortlisted"] == 1
+    assert journal.stats()["directional_calls"] == 0
+
+
 def test_bad_ticker_is_skipped_not_fatal(monkeypatch):
     """A symbol whose provider raises must be skipped, not crash the sweep."""
     from app.collectors.market_collector import MarketDataError

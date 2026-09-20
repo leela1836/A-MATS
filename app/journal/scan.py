@@ -294,6 +294,7 @@ def run_screen_scan(
     deterministic path. `use_llm=True` forces the LLM for all finalists.
     """
     from app.journal.screener import screen_universe
+    from app.journal.screener import qualifies_for_trade
 
     journal = journal or get_journal()
     scan_id = datetime.now(timezone.utc).strftime("scan-%Y%m%dT%H%M%S")
@@ -327,6 +328,9 @@ def run_screen_scan(
     for rank, c in enumerate(candidates, start=1):
         if c.symbol in open_syms:
             held_open += 1
+            continue
+        if not qualifies_for_trade(c):
+            benched_skipped += 1
             continue
         # Champion/challenger gate: a strategy validated as a loser is benched —
         # it may still have labelled the setup, but it doesn't get to trade it.

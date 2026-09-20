@@ -142,6 +142,25 @@ def _to_candidate(ma: MarketAnalysis) -> Candidate:
     )
 
 
+def qualifies_for_trade(candidate: Candidate) -> bool:
+    """Tight gate for entries: keep only setups with earned signal quality.
+
+    The live record has been dominated by weak entries that look directional but
+    fail to have the confidence and room needed to justify risk. We keep the
+    validator as a veto when it earns trust, but we do not let low-conviction or
+    cramped setups into the paper book at all.
+    """
+    if candidate.confidence < 0.55:
+        return False
+    if candidate.score < 0.50:
+        return False
+    if candidate.room_pct < 2.5:
+        return False
+    if candidate.pattern_bias in ("none", "mixed") and candidate.score < 0.55:
+        return False
+    return True
+
+
 def screen_universe(
     symbols: Optional[list[str]] = None,
     top_n: int = 20,
@@ -169,7 +188,9 @@ def screen_universe(
             time.sleep(throttle_s)
 
     candidates.sort(key=lambda c: -c.score)
-    shortlist = _gate_and_tag(candidates[:top_n])
+    shortlist = _gate_and_tag([
+        c for c in candidates[:top_n] if qualifies_for_trade(c)
+    ])
     return shortlist, prices
 
 
@@ -186,6 +207,8 @@ def _gate_and_tag(candidates: list[Candidate]) -> list[Candidate]:
     regime = market_regime().get("regime", "neutral")
     kept: list[Candidate] = []
     for c in candidates:
+        if not qualifies_for_trade(c):
+            continue
         try:
             df = fetch_history(c.symbol, period="1y")
             turnover = avg_turnover(df)
