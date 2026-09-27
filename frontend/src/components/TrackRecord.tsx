@@ -34,7 +34,7 @@ export function TrackRecord() {
     try {
       const [eq, decs] = await Promise.all([getJournalEquity(), getJournalDecisions(30)]);
       setEquity(eq.equity_curve);
-      setStats(eq.stats);
+      setStats(eq.research_stats);
       setDecisions(decs);
     } catch {
       /* backend offline — keep last known */
@@ -69,8 +69,8 @@ export function TrackRecord() {
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-sm font-medium">Track record</span>
-          <span className="text-xs text-muted ml-2">the agent's own history — watch it learn</span>
+          <span className="text-sm font-medium">Paper equity and research decisions</span>
+          <span className="text-xs text-muted ml-2">chart: simulated fills; statistics: research ideas</span>
         </div>
         <button
           onClick={learn}
@@ -102,7 +102,7 @@ export function TrackRecord() {
         <EquityChart points={curve} height={140} />
       ) : (
         <div className="grid place-items-center text-xs text-muted h-[120px]">
-          No equity history yet — run scans (or the scheduled job) to build it.
+          No paper equity history yet. Run the continuous paper trader to record fresh market marks.
         </div>
       )}
 

@@ -268,16 +268,16 @@ async function runScan(){
 
 <script>
 const C={green:'#3fb950',red:'#f85149',muted:'#8b98ab',accent:'#4f9dff',border:'#232c3d',surface2:'#1a2130',fg:'#e6edf3'};
-const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+const inr=n=>n==null?'—':'₹'+Math.round(n).toLocaleString('en-IN');
 let FILTER='all', DATA=null;
 
 function tiles(s,eq){
-  const last=eq.length?eq[eq.length-1]:{equity:100000,return_percent:0};
-  const ret=last.return_percent||0;
+  const last=eq.length?eq[eq.length-1]:{equity:null,return_percent:null};
+  const ret=last.return_percent;
   const t=[
-    ['Equity',inr(last.equity||100000),C.fg],
-    ['Return',(ret>=0?'+':'')+ret.toFixed(2)+'%',ret>0?C.green:ret<0?C.red:C.fg],
-    ['Win rate',s.win_rate_pct==null?'—':s.win_rate_pct+'%',C.fg],
+    ['Paper equity',last.equity==null?'—':inr(last.equity),C.fg],
+    ['Paper return',ret==null?'—':(ret>=0?'+':'')+ret.toFixed(2)+'%',ret>0?C.green:ret<0?C.red:C.fg],
+    ['Research win rate',s.win_rate_pct==null?'—':s.win_rate_pct+'%',C.fg],
     ['Open',s.open,C.fg],
     ['Decisions',s.decisions,C.fg],
     ['Scans',s.scans,C.fg],
@@ -372,7 +372,7 @@ function summaryPanel(s){
     ['scans today',t.scans,C.fg],['opened',t.opened,C.fg],
     ['long / short',t.longs+'/'+t.shorts,C.fg],['closed',t.closed,C.fg],
     ['win / loss',t.wins+'/'+t.losses,wl],
-    ['today P&L',t.realized_pnl_pct==null?'—':(t.realized_pnl_pct>=0?'+':'')+t.realized_pnl_pct+'%',pnlCol],
+    ['research P&L',t.realized_pnl_pct==null?'—':(t.realized_pnl_pct>=0?'+':'')+t.realized_pnl_pct+'%',pnlCol],
   ];
   document.getElementById('stoday').innerHTML=cells.map(([l,v,c])=>
     `<div><div class="v mono" style="color:${c}">${v}</div><div class="l">${l}</div></div>`).join('');

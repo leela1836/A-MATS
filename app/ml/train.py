@@ -142,8 +142,9 @@ def train(hidden: list[int] | None = None) -> dict:
     )
     print(f"\n  VERDICT: {verdict}")
 
+    candidate_path = MODEL_PATH.with_name(MODEL_PATH.stem + ".candidate.json")
     save_model(
-        MODEL_PATH, mlp, scaler, ds.feature_names, thr,
+        candidate_path, mlp, scaler, ds.feature_names, thr,
         meta={
             "symbols": SYMBOLS, "period": PERIOD, "trades": len(ds),
             "hidden_layers": hidden,
@@ -155,7 +156,7 @@ def train(hidden: list[int] | None = None) -> dict:
             "logistic_auc": round(log_eval.auc, 4),
         },
     )
-    print(f"\n  saved -> {MODEL_PATH}")
+    print(f"\n  candidate saved -> {candidate_path}; active model unchanged")
     return {"mlp": mlp_eval, "logistic": log_eval}
 
 

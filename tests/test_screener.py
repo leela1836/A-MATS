@@ -102,10 +102,18 @@ def test_history_failure_fails_closed(monkeypatch):
     assert cands == []
 
 
-def test_screen_scan_does_not_reopen_already_open_symbols(journal):
+def test_screen_scan_does_not_reopen_already_open_symbols(journal, monkeypatch):
     """Scanning the same names twice must NOT create duplicate open trades —
     one open decision per symbol until it resolves."""
     uni = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "SBIN.NS"]
+    # This tests journal deduplication, not random-history strategy routing or
+    # the user's persisted roster (which may legitimately bench every setup).
+    from app.journal.screener import Candidate
+    candidate = Candidate("RELIANCE.NS", "long", .8, .72, None, "up", 1400,
+                          None, None, 10, "none", "trend_following")
+    monkeypatch.setattr("app.journal.screener.screen_universe",
+                        lambda *a, **k: ([candidate], {"RELIANCE.NS": 1400}))
+    monkeypatch.setattr("app.journal.scan.is_tradable", lambda name: True)
     run_screen_scan(universe=uni, top_n=4, journal=journal)
     after_first = len(journal.open_decisions())
     s2 = run_screen_scan(universe=uni, top_n=4, journal=journal)

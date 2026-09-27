@@ -30,6 +30,23 @@ def health() -> dict:
     return {"status": "ok", "service": "a-mats", "version": app.version}
 
 
+@app.get("/paper/realtime")
+def realtime_status() -> dict:
+    """Read the separate paper runner's heartbeat; this endpoint cannot trade."""
+    import json
+    from datetime import datetime, timezone
+    from app.execution.realtime import STATUS
+
+    if not STATUS.exists():
+        return {"running": False, "reason": "No realtime paper runner heartbeat yet"}
+    try:
+        report = json.loads(STATUS.read_text(encoding="utf-8"))
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(report["heartbeat"])).total_seconds()
+        return {**report, "running": 0 <= age <= 30, "heartbeat_age_seconds": round(age, 1)}
+    except (ValueError, KeyError, OSError):
+        raise HTTPException(status_code=503, detail="Realtime status unavailable")
+
+
 @app.get("/config/{name}")
 def config(name: str) -> dict:
     try:
@@ -210,23 +227,44 @@ def journal_equity(limit: int = 500) -> dict:
     from app.journal.store import get_journal
 
     j = get_journal()
-    return {"equity_curve": j.equity_curve(limit=limit), "stats": j.stats()}
+    from app.execution.accounting import paper_report
+    report = paper_report()
+    return {**report, "equity_curve": report["equity_curve"][-max(1, min(limit, 5000)):],
+            "research_stats": j.stats()}
+
+
+@app.get("/journal/research-equity")
+def research_equity(limit: int = 500) -> dict:
+    from app.journal.store import get_journal
+    return {"accounting_basis": "hypothetical_fixed_notional_research",
+            "warning": "Not portfolio returns; unconstrained ideas, realized P&L only",
+            "equity_curve": get_journal().equity_curve(limit=limit)}
+
+
+@app.get("/paper/account")
+def paper_account() -> dict:
+    from app.execution.accounting import paper_report
+    return paper_report()
 
 
 @app.get("/portfolio")
 def portfolio() -> dict:
     """Current virtual paper portfolio (cash, positions, P&L)."""
-    return get_broker().snapshot()
+    from app.execution.accounting import paper_report
+    report = paper_report()
+    return {**report["portfolio"], "available": report["available"],
+            "accounting_basis": report["accounting_basis"], "as_of": report.get("as_of")}
 
 
 @app.get("/trades")
 def trades(limit: int = 50) -> dict:
     """Most recent paper trades, newest first."""
-    return {"trades": get_broker().recent_trades(limit)}
+    from app.execution.accounting import paper_report
+    return {"accounting_basis": "paper_fills",
+            "trades": list(reversed(paper_report()["trades"][-max(1, min(limit, 5000)):]))}
 
 
 @app.post("/portfolio/reset")
 def portfolio_reset() -> dict:
     """Reset the virtual portfolio to its starting cash."""
-    get_broker().reset()
-    return get_broker().snapshot()
+    raise HTTPException(status_code=409, detail="Stop the paper runner and archive its account to start a new experiment; history cannot be reset through the API")

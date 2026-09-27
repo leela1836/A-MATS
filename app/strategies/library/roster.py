@@ -78,8 +78,7 @@ def evaluate_and_update(journal=None, save: bool = True) -> dict[str, dict[str, 
         if n < MIN_LIVE_N or avg is None:
             continue
         if info["status"] == "shadow" and avg > 0:
-            info["status"] = "live"
-            info["note"] = f"promoted — live edge {avg:+.2f}%/trade over {n}"
+            info["note"] = f"research candidate {avg:+.2f}% over {n} ideas; needs fill-based validation"
         elif info["status"] == "live" and avg < 0:
             info["status"] = "benched"
             info["note"] = f"demoted — live edge {avg:+.2f}%/trade over {n}"

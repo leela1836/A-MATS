@@ -111,7 +111,7 @@ def test_roster_promotes_and_demotes_on_live_edge(tmp_path, monkeypatch):
     add("mean_reversion", 3.0, 35)     # clearly positive net of costs
     add("trend_following", -3.0, 35)   # clearly negative
     r = roster.evaluate_and_update(journal=j, save=True)
-    assert r["mean_reversion"]["status"] == "live"      # promoted
+    assert r["mean_reversion"]["status"] == "shadow"    # research ideas cannot promote
     assert r["trend_following"]["status"] == "benched"  # demoted
     assert roster.is_tradable("candlestick") is False   # validated loser stays benched
 

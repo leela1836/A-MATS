@@ -65,9 +65,10 @@ def compute_insights(journal: Journal | None = None) -> dict[str, Any]:
     significant = n >= SIGNIFICANT_N
     caveat = (f"Small sample (n={n}) — treat as directional, not proven."
               if not significant else f"Based on {n} closed trades.")
-    caveat += f" All figures are net of {ROUND_TRIP_COST_PCT:.2f}% modeled round-trip costs."
+    caveat += f" Research ideas only, not executed portfolio returns. Net of {ROUND_TRIP_COST_PCT:.2f}% modeled round-trip costs."
     return {
         "generated_at": None,  # filled by callers that snapshot it
+        "accounting_basis": "hypothetical_research_ideas",
         "overall": {
             "resolved": n,
             "agent_return": agent_ret,

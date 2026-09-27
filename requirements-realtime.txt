@@ -1,0 +1,5 @@
+# Optional: the existing app/backtests do not require the FYERS SDK.
+-r requirements.txt
+upstox-python-sdk==2.23.0
+# Only for users explicitly selecting provider: fyers:
+# fyers-apiv3==3.1.15

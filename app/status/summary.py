@@ -106,28 +106,15 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
     journal = journal or get_journal()
     stats = journal.stats()
     today = journal.today_summary()
-    # Honest, persistent P&L: derive the agent's equity from the journal's realized
-    # trades (not the broker, which resets every cloud run). The last curve point is
-    # the current standing.
-    from app.journal.store import _starting_cash
-    start = _starting_cash()
-    curve = journal.equity_curve()
-    latest = curve[-1] if curve else None
-    agent_equity = latest["equity"] if latest else start
-    agent_ret = latest["return_percent"] if latest else 0.0
-    portfolio = {
-        "equity": agent_equity,
-        "total_pnl": round(agent_equity - start, 2),
-        "return_percent": agent_ret,
-        "cash": None,          # not meaningful in the journal-derived model
-        "realized_pnl": round(agent_equity - start, 2),
-        "unrealized_pnl": None,
-    }
+    from app.execution.accounting import paper_report
+    account = paper_report()
+    portfolio = account["portfolio"]
     open_positions = journal.open_positions_detail(limit=20)
     learn_events = journal.learning_events(limit=10)
     experience = len(journal.training_rows())  # own closed trades it can learn from
     model = _model_meta()
-    bench = _benchmark(journal, portfolio["return_percent"])
+    bench = {"equity": None, "return_percent": None, "spread_pct": None,
+             "label": "No benchmark with matching account inception yet"}
     from app.status.insights import compute_insights
     from app.strategies.library.roster import get_roster
     from app.strategies.regime import market_regime
@@ -154,15 +141,20 @@ def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "headline": _headline(today, portfolio, len(open_positions), bench),
+        "headline": (f"Research: {today['scans']} scans today. "
+                     + ("Paper account: last complete marked equity " + _inr(portfolio['equity'])
+                        if account['available'] else "No verified continuous paper-account equity yet.")),
         "today": today,
         "benchmark": bench,
         "insights": {**insights, "spread_trend": spread_trend},
         "regime": regime,
         "strategies": strategies,
         "track_record": stats,
-        "portfolio": {**portfolio, "sizing_note": "each closed trade modeled at 10% of starting capital"},
-        "open_positions": [
+        "portfolio": {**portfolio, "sizing_note": "Actual simulated fills; last complete market mark",
+                      "accounting_basis": "paper_fills", "as_of": account.get("as_of")},
+        "paper_account": account,
+        "open_positions": account["open_positions"],
+        "research_open_ideas": [
             {
                 "symbol": p["symbol"],
                 "direction": p["direction"],

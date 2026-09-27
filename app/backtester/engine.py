@@ -130,19 +130,23 @@ def run_backtest(
 
     position: Optional[OpenPosition] = None
     pending: Optional[tuple[Direction, float, float]] = None  # (dir, stop_d, target_d)
+    pending_exit = False
+
+    def exit_fill(raw: float, direction: Direction) -> float:
+        return raw * (1 - slippage if direction == Direction.LONG else 1 + slippage)
 
     # Stop at len-1: a signal on the final bar has no next open to fill at.
     for i in range(WARMUP_BARS, len(df)):
         bar = df.iloc[i]
         date = str(df.index[i].date())
 
-        # ── 1. Manage an open position against THIS bar's range ──
-        if position is not None:
-            exit_price, reason = _check_exit(position, bar)
-            if exit_price is not None:
-                equity += _close_pnl(position, exit_price, commission)
-                result.trades.append(_record(position, date, exit_price, reason, i, commission))
-                position = None
+        # Orders decided at the previous close execute at this open.
+        if position is not None and pending_exit:
+            price = exit_fill(float(bar["Open"]), position.direction)
+            equity += _close_pnl(position, price, commission)
+            result.trades.append(_record(position, date, price, "signal_flip", i, commission))
+            position = None
+        pending_exit = False
 
         # ── 2. Fill a pending order at THIS bar's open (decided last bar) ──
         if position is None and pending is not None:
@@ -163,9 +167,20 @@ def run_backtest(
                 equity -= commission
         pending = None
 
+        # Include the entry bar. At daily resolution assume stop before target
+        # when both are reachable; opening gaps execute at the worse open.
+        if position is not None:
+            raw_exit, reason = _check_exit(position, bar)
+            if raw_exit is not None:
+                price = exit_fill(raw_exit, position.direction)
+                equity += _close_pnl(position, price, commission)
+                result.trades.append(_record(position, date, price, reason, i, commission))
+                position = None
+
         # ── 3. Decide from bars up to and including i (never beyond) ──
         window = df.iloc[: i + 1]
         ov = signal_overrides or {}
+        ind = {}
         try:
             ind = compute_indicators(window)
             if ov.get("strategy") == "weinstein":
@@ -197,11 +212,7 @@ def run_backtest(
                 target_mult = float(ov.get("target_atr_mult", 3.0))
                 pending = (signal, stop_mult * atr, target_mult * atr)
         elif _flipped(position.direction, signal):
-            # Signal reversed: exit at next open rather than wait for a stop.
-            close = float(bar["Close"])
-            equity += _close_pnl(position, close, commission)
-            result.trades.append(_record(position, date, close, "signal_flip", i, commission))
-            position = None
+            pending_exit = True
 
         # ── 4. Mark to market ──
         mark = equity
@@ -213,25 +224,36 @@ def run_backtest(
 
     # Close anything still open at the final close.
     if position is not None:
-        last_close = float(df.iloc[-1]["Close"])
+        last_close = exit_fill(float(df.iloc[-1]["Close"]), position.direction)
         equity += _close_pnl(position, last_close, commission)
         result.trades.append(
             _record(position, str(df.index[-1].date()), last_close, "end_of_data", len(df) - 1, commission)
         )
         result.equity_curve[-1]["equity"] = round(equity, 2)
 
+    for trade in result.trades:
+        trade.symbol = symbol
     return result
 
 
 def _check_exit(pos: OpenPosition, bar) -> tuple[Optional[float], str]:
     """Stop first when a bar straddles both — pessimistic and honest."""
     high, low = float(bar["High"]), float(bar["Low"])
+    opening = float(bar.get("Open", pos.entry_price))
     if pos.direction == Direction.LONG:
+        if opening <= pos.stop:
+            return opening, "stop"
+        if opening >= pos.target:
+            return pos.target, "target"
         if low <= pos.stop:
             return pos.stop, "stop"
         if high >= pos.target:
             return pos.target, "target"
     else:
+        if opening >= pos.stop:
+            return opening, "stop"
+        if opening <= pos.target:
+            return pos.target, "target"
         if high >= pos.stop:
             return pos.stop, "stop"
         if low <= pos.target:

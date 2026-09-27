@@ -79,11 +79,11 @@ export function AgentSummary() {
       {/* today's numbers */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
         <Tile label="scans today" value={String(t.scans)} />
-        <Tile label="opened" value={`${t.opened}`} />
+        <Tile label="research opened" value={`${t.opened}`} />
         <Tile label="long / short" value={`${t.longs}/${t.shorts}`} />
-        <Tile label="closed" value={String(t.closed)} />
+        <Tile label="research closed" value={String(t.closed)} />
         <Tile label="win / loss" value={`${t.wins}/${t.losses}`} tone={t.wins > t.losses ? "text-pass" : t.losses > t.wins ? "text-fail" : "text-foreground"} />
-        <Tile label="today P&L" value={pct(t.realized_pnl_pct)} tone={dayTone} />
+        <Tile label="research P&L" value={pct(t.realized_pnl_pct)} tone={dayTone} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

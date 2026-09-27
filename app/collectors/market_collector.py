@@ -187,6 +187,15 @@ def _cache_path(symbol: str, period: str, interval: str) -> Path:
     return CACHE_DIR / f"{safe}.pkl"
 
 
+def normalise_cached_history(df: pd.DataFrame) -> pd.DataFrame:
+    """Repair legacy Upstox daily timestamps without rewriting the cache."""
+    if (len(df) and isinstance(df.index, pd.DatetimeIndex) and df.index.tz is None
+            and all(t.hour == 18 and t.minute == 30 for t in df.index)):
+        df = df.copy()
+        df.index = df.index.tz_localize("UTC").tz_convert("Asia/Kolkata")
+    return df
+
+
 def fetch_history(
     symbol: str,
     period: str = "2y",
@@ -205,7 +214,7 @@ def fetch_history(
     def _load_stale() -> Optional[pd.DataFrame]:
         if use_cache and path.exists():
             try:
-                return pd.read_pickle(path)
+                return normalise_cached_history(pd.read_pickle(path))
             except Exception:
                 return None
         return None

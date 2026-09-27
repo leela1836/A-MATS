@@ -13,6 +13,10 @@ from app.models.state import Direction, MarketAnalysis
 
 @pytest.fixture(autouse=True)
 def isolated_broker(tmp_path, monkeypatch):
+    from app.config import get_config
+    # Legacy pipeline tests explicitly exercise the legacy simulator. Production
+    # config leaves this off; continuous execution has its own test suite.
+    monkeypatch.setitem(get_config("trading"), "legacy_execution_enabled", True)
     broker = paper_broker.PaperBroker(path=tmp_path / "portfolio.json")
     monkeypatch.setattr(paper_broker, "_broker", broker)
     yield broker
@@ -124,5 +128,6 @@ def no_llm(monkeypatch):
     so leaving any one set would let the suite make real API calls.
     """
     for env in ("OPENAI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY",
-                "AZURE_OPENAI_API_KEY"):
+                "AZURE_OPENAI_API_KEY", "NVIDIA_API_KEY", "FYERS_APP_ID",
+                "FYERS_ACCESS_TOKEN"):
         monkeypatch.delenv(env, raising=False)

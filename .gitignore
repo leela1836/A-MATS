@@ -26,6 +26,10 @@ logs/
 data/raw/
 data/cache/
 data/portfolio.json
+data/realtime_portfolio.json
+data/realtime_portfolio.lock
+data/realtime_status.json
+data/paper.stop
 data/*.json.tmp
 data/nse_cache/
 

@@ -54,6 +54,7 @@ class Portfolio:
     positions: dict[str, Position] = field(default_factory=dict)
     trades: list[Trade] = field(default_factory=list)
     seq: int = 0
+    runtime: dict = field(default_factory=dict)
 
     # ── serialization ──
     def to_dict(self) -> dict:
@@ -61,6 +62,7 @@ class Portfolio:
             "starting_cash": self.starting_cash,
             "cash": self.cash,
             "seq": self.seq,
+            "runtime": self.runtime,
             "positions": {
                 s: {"symbol": p.symbol, "qty": p.qty, "avg_price": p.avg_price}
                 for s, p in self.positions.items()
@@ -71,6 +73,7 @@ class Portfolio:
     @classmethod
     def from_dict(cls, d: dict) -> "Portfolio":
         pf = cls(starting_cash=d["starting_cash"], cash=d["cash"], seq=d.get("seq", 0))
+        pf.runtime = d.get("runtime", {})
         for s, p in d.get("positions", {}).items():
             pf.positions[s] = Position(symbol=p["symbol"], qty=p["qty"], avg_price=p["avg_price"])
         pf.trades = [Trade(**t) for t in d.get("trades", [])]
@@ -144,14 +147,14 @@ class PaperBroker:
 
     # ── trading ──
     def place_order(self, symbol: str, side: str, qty: float, price: float,
-                    note: str = "") -> Trade:
+                    note: str = "", last_prices: Optional[dict[str, float]] = None) -> Trade:
         """Execute a market paper order. side is 'buy' or 'sell'."""
-        if qty <= 0:
+        if not math.isfinite(qty) or qty <= 0:
             raise ValueError("qty must be positive")
         if side not in ("buy", "sell"):
             raise ValueError("side must be 'buy' or 'sell'")
-        if not (price == price and price not in (float("inf"), float("-inf"))):
-            raise ValueError("price must be finite")
+        if not math.isfinite(price) or price <= 0:
+            raise ValueError("price must be finite and positive")
 
         with self._lock:
             delta = qty if side == "buy" else -qty
@@ -159,6 +162,8 @@ class PaperBroker:
             risk = get_config("risk")
             portfolio_cfg = risk.get("portfolio", {})
             new_qty, new_avg, realized = _apply_fill(pos.qty, pos.avg_price, delta, price)
+            reducing = pos.qty * delta < 0 and abs(delta) <= abs(pos.qty)
+            marks = last_prices or {}
 
             # The paper broker is the final safety boundary: never spend the
             # reserve, open shorts when leverage is disabled, or exceed the
@@ -179,27 +184,27 @@ class PaperBroker:
             if abs(new_qty) > 1e-9:
                 projected_positions[symbol] = Position(symbol, new_qty, new_avg)
             equity_after = projected_cash + sum(
-                p.qty * (price if s == symbol else p.avg_price)
+                p.qty * (price if s == symbol else marks.get(s, p.avg_price))
                 for s, p in projected_positions.items()
             )
             if equity_after <= 0:
                 raise ValueError("order would make portfolio equity non-positive")
             max_leverage = float(portfolio_cfg.get("max_leverage", 1.0))
             gross = sum(
-                abs(p.qty) * (price if s == symbol else p.avg_price)
+                abs(p.qty) * (price if s == symbol else marks.get(s, p.avg_price))
                 for s, p in projected_positions.items()
             )
-            if gross > equity_after * max_leverage + 1e-9:
+            if not reducing and gross > equity_after * max_leverage + 1e-9:
                 raise ValueError("order would breach maximum portfolio leverage")
             max_concentration = float(
                 portfolio_cfg.get("max_position_concentration", 100.0)
             ) / 100.0
             symbol_value = abs(new_qty) * price
-            if symbol_value > equity_after * max_concentration + 1e-9:
+            if not reducing and symbol_value > equity_after * max_concentration + 1e-9:
                 raise ValueError("order would breach maximum position concentration")
             max_concurrent = int(risk.get("per_trade", {}).get("max_concurrent_trades", 10**9))
             open_count = sum(1 for p in projected_positions.values() if not p.is_flat())
-            if open_count > max_concurrent:
+            if not reducing and open_count > max_concurrent:
                 raise ValueError("order would breach maximum concurrent trades")
 
             # Cash: buys spend, sells receive; commission always debits.
@@ -254,7 +259,8 @@ class PaperBroker:
                     "symbol": s, "qty": p.qty, "avg_price": round(p.avg_price, 2),
                     "mark_price": round(mark, 2), "unrealized_pnl": round(pnl, 2),
                 })
-            realized = sum(t.realized_pnl for t in self._pf.trades)
+            fees = sum(t.commission for t in self._pf.trades)
+            realized = sum(t.realized_pnl for t in self._pf.trades) - fees
             positions_value = self._positions_value(last_prices)
             equity = self._pf.cash + positions_value
             return {
@@ -264,6 +270,7 @@ class PaperBroker:
                 "positions_value": round(positions_value, 2),
                 "equity": round(equity, 2),
                 "realized_pnl": round(realized, 2),
+                "fees_paid": round(fees, 2),
                 "unrealized_pnl": round(unrealized, 2),
                 "total_pnl": round(equity - self._pf.starting_cash, 2),
                 "return_percent": round((equity / self._pf.starting_cash - 1) * 100, 3),

@@ -254,6 +254,12 @@ def execution_node(state: AgentState) -> dict:
     ma = state["market_analysis"]
     ref_price = ma.last_price
 
+    if not get_config("trading").get("legacy_execution_enabled", True):
+        return {"execution_result": ExecutionResult(
+            symbol=d.symbol, filled=False, action=d.action, mode=mode,
+            note="research only; continuous runner owns paper-account execution",
+        )}
+
     # Never fill against a stale close. Outside the NSE session the latest
     # bar is the previous trading day's, and nothing about it looks wrong —
     # so this guard is what stops a 22:00-Sunday "trade" at Friday's price.

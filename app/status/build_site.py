@@ -23,10 +23,12 @@ def _track_record() -> dict:
         if d.get("thesis"):
             d["thesis"] = d["thesis"][:240]
     from app.status.summary import agent_summary
+    from app.execution.accounting import paper_report
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "stats": j.stats(),
-        "equity": j.equity_curve(500),
+        "equity": paper_report()["equity_curve"],
+        "accounting_basis": "paper_fills",
         "decisions": decisions,
         "summary": agent_summary(j),
     }

@@ -1,6 +1,16 @@
 # A-MATS Trading Configuration
 # Defines trading modes, execution parameters, and strategy settings
 
+# python -m app.execution.realtime (isolated account; no LLM/API order calls)
+realtime:
+  provider: upstox
+  max_tick_age_seconds: 30
+  max_entry_gap_percent: 3.0
+  min_reward_risk: 1.2
+
+# Scans produce research ideas. Only the continuous runner owns paper fills.
+legacy_execution_enabled: false
+
 # ─── Trading Mode ───
 # Currency: INR. Balances and slippage are in rupees.
 mode:

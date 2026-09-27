@@ -18,6 +18,16 @@ def test_candles_to_df_shape_and_order():
     assert df.index.is_monotonic_increasing            # oldest first
     assert df["Close"].iloc[-1] == 102.5               # newest last
     assert df["Open"].dtype == float and len(df) == 3
+    assert str(df.index[0].date()) == "2025-01-01"
+    assert df.index[0].hour == 0
+
+
+def test_legacy_cache_preserves_indian_session_date():
+    from app.collectors.market_collector import normalise_cached_history
+    original = pd.DataFrame({"Close": [100]}, index=pd.to_datetime(["2025-01-05 18:30"]))
+    repaired = normalise_cached_history(original)
+    assert str(repaired.index[0].date()) == "2025-01-06"
+    assert original.index.tz is None
 
 
 def test_instrument_key_maps_and_strips_suffix(monkeypatch):

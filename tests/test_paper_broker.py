@@ -44,7 +44,8 @@ def test_realized_pnl_on_close(broker):
     broker.place_order("INFY.NS", "sell", 10, 1600.0)  # close for +100/share
     snap = broker.snapshot()
     assert snap["open_positions"] == []
-    assert snap["realized_pnl"] == pytest.approx(10 * 100.0)
+    assert snap["realized_pnl"] == pytest.approx(10 * 100.0 - snap["fees_paid"])
+    assert snap["realized_pnl"] + snap["unrealized_pnl"] == pytest.approx(snap["total_pnl"])
 
 
 def test_average_price_on_scale_in(broker):

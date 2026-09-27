@@ -1,0 +1,1968 @@
+{
+  "scanned": 49,
+  "period": "3y",
+  "evaluation_start": "2025-12-15",
+  "buy_hold_avg_pct": -1.255113003990342,
+  "benchmark_note": "Gross equal-weight reference; different exposure, excludes costs",
+  "validation": "retrospective chronological holdout; not prospective proof",
+  "strategies": {
+    "mean_reversion": {
+      "trades": 39,
+      "win_rate": 30.76923076923077,
+      "avg": -1.417740312721325,
+      "portfolio_return_pct": -5.11,
+      "monthly": [
+        {
+          "month": "2025-12",
+          "opening_equity": 100000.0,
+          "equity": 100549.18,
+          "pnl": 549.18,
+          "return_percent": 0.5492,
+          "as_of": "2025-12-31T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-01",
+          "opening_equity": 100549.18,
+          "equity": 99414.51,
+          "pnl": -1134.67,
+          "return_percent": -1.1285,
+          "as_of": "2026-01-30T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-02",
+          "opening_equity": 99414.51,
+          "equity": 98567.07,
+          "pnl": -847.44,
+          "return_percent": -0.8524,
+          "as_of": "2026-02-27T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-03",
+          "opening_equity": 98567.07,
+          "equity": 95061.21,
+          "pnl": -3505.86,
+          "return_percent": -3.5568,
+          "as_of": "2026-03-30T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "opening_equity": 95061.21,
+          "equity": 96169.74,
+          "pnl": 1108.53,
+          "return_percent": 1.1661,
+          "as_of": "2026-04-30T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-05",
+          "opening_equity": 96169.74,
+          "equity": 96169.74,
+          "pnl": 0.0,
+          "return_percent": 0.0,
+          "as_of": "2026-05-29T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-06",
+          "opening_equity": 96169.74,
+          "equity": 94958.59,
+          "pnl": -1211.15,
+          "return_percent": -1.2594,
+          "as_of": "2026-06-30T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-07",
+          "opening_equity": 94958.59,
+          "equity": 94830.75,
+          "pnl": -127.84,
+          "return_percent": -0.1346,
+          "as_of": "2026-07-31T15:29:00+05:30",
+          "partial": true
+        },
+        {
+          "month": "2026-08",
+          "opening_equity": 94830.75,
+          "equity": 94890.25,
+          "pnl": 59.5,
+          "return_percent": 0.0627,
+          "as_of": "2026-08-07T15:29:00+05:30",
+          "partial": true
+        }
+      ],
+      "halt": "",
+      "account": {
+        "available": true,
+        "accounting_basis": "paper_fills",
+        "equity_curve": [
+          {
+            "ts": "2025-12-15T15:29:00+05:30",
+            "equity": 100000.0,
+            "return_percent": 0.0
+          },
+          {
+            "ts": "2025-12-16T15:29:00+05:30",
+            "equity": 100000.0,
+            "return_percent": 0.0
+          },
+          {
+            "ts": "2025-12-17T15:29:00+05:30",
+            "equity": 100024.72,
+            "return_percent": 0.025
+          },
+          {
+            "ts": "2025-12-18T15:29:00+05:30",
+            "equity": 99959.13,
+            "return_percent": -0.041
+          },
+          {
+            "ts": "2025-12-19T15:29:00+05:30",
+            "equity": 100091.4,
+            "return_percent": 0.091
+          },
+          {
+            "ts": "2025-12-22T15:29:00+05:30",
+            "equity": 100188.37,
+            "return_percent": 0.188
+          },
+          {
+            "ts": "2025-12-23T15:29:00+05:30",
+            "equity": 100264.2,
+            "return_percent": 0.264
+          },
+          {
+            "ts": "2025-12-24T15:29:00+05:30",
+            "equity": 100264.95,
+            "return_percent": 0.265
+          },
+          {
+            "ts": "2025-12-26T15:29:00+05:30",
+            "equity": 100297.63,
+            "return_percent": 0.298
+          },
+          {
+            "ts": "2025-12-29T15:29:00+05:30",
+            "equity": 100310.1,
+            "return_percent": 0.31
+          },
+          {
+            "ts": "2025-12-30T15:29:00+05:30",
+            "equity": 100304.08,
+            "return_percent": 0.304
+          },
+          {
+            "ts": "2025-12-31T15:29:00+05:30",
+            "equity": 100549.18,
+            "return_percent": 0.549
+          },
+          {
+            "ts": "2026-01-01T15:29:00+05:30",
+            "equity": 100444.26,
+            "return_percent": 0.444
+          },
+          {
+            "ts": "2026-01-02T15:29:00+05:30",
+            "equity": 100561.86,
+            "return_percent": 0.562
+          },
+          {
+            "ts": "2026-01-05T15:29:00+05:30",
+            "equity": 100561.86,
+            "return_percent": 0.562
+          },
+          {
+            "ts": "2026-01-06T15:29:00+05:30",
+            "equity": 100561.86,
+            "return_percent": 0.562
+          },
+          {
+            "ts": "2026-01-07T15:29:00+05:30",
+            "equity": 100561.86,
+            "return_percent": 0.562
+          },
+          {
+            "ts": "2026-01-08T15:29:00+05:30",
+            "equity": 100561.86,
+            "return_percent": 0.562
+          },
+          {
+            "ts": "2026-01-09T15:29:00+05:30",
+            "equity": 100561.86,
+            "return_percent": 0.562
+          },
+          {
+            "ts": "2026-01-12T15:29:00+05:30",
+            "equity": 100605.06,
+            "return_percent": 0.605
+          },
+          {
+            "ts": "2026-01-13T15:29:00+05:30",
+            "equity": 100411.46,
+            "return_percent": 0.411
+          },
+          {
+            "ts": "2026-01-14T15:29:00+05:30",
+            "equity": 100332.42,
+            "return_percent": 0.332
+          },
+          {
+            "ts": "2026-01-16T15:29:00+05:30",
+            "equity": 100234.3,
+            "return_percent": 0.234
+          },
+          {
+            "ts": "2026-01-19T15:29:00+05:30",
+            "equity": 99871.72,
+            "return_percent": -0.128
+          },
+          {
+            "ts": "2026-01-20T15:29:00+05:30",
+            "equity": 99725.85,
+            "return_percent": -0.274
+          },
+          {
+            "ts": "2026-01-21T15:29:00+05:30",
+            "equity": 99713.12,
+            "return_percent": -0.287
+          },
+          {
+            "ts": "2026-01-22T15:29:00+05:30",
+            "equity": 99947.62,
+            "return_percent": -0.052
+          },
+          {
+            "ts": "2026-01-23T15:29:00+05:30",
+            "equity": 99066.65,
+            "return_percent": -0.933
+          },
+          {
+            "ts": "2026-01-27T15:29:00+05:30",
+            "equity": 99099.92,
+            "return_percent": -0.9
+          },
+          {
+            "ts": "2026-01-28T15:29:00+05:30",
+            "equity": 99280.17,
+            "return_percent": -0.72
+          },
+          {
+            "ts": "2026-01-29T15:29:00+05:30",
+            "equity": 99293.15,
+            "return_percent": -0.707
+          },
+          {
+            "ts": "2026-01-30T15:29:00+05:30",
+            "equity": 99414.51,
+            "return_percent": -0.585
+          },
+          {
+            "ts": "2026-02-01T15:29:00+05:30",
+            "equity": 98624.16,
+            "return_percent": -1.376
+          },
+          {
+            "ts": "2026-02-02T15:29:00+05:30",
+            "equity": 98987.71,
+            "return_percent": -1.012
+          },
+          {
+            "ts": "2026-02-03T15:29:00+05:30",
+            "equity": 100309.86,
+            "return_percent": 0.31
+          },
+          {
+            "ts": "2026-02-04T15:29:00+05:30",
+            "equity": 100340.41,
+            "return_percent": 0.34
+          },
+          {
+            "ts": "2026-02-05T15:29:00+05:30",
+            "equity": 100317.01,
+            "return_percent": 0.317
+          },
+          {
+            "ts": "2026-02-06T15:29:00+05:30",
+            "equity": 100093.41,
+            "return_percent": 0.093
+          },
+          {
+            "ts": "2026-02-09T15:29:00+05:30",
+            "equity": 100179.41,
+            "return_percent": 0.179
+          },
+          {
+            "ts": "2026-02-10T15:29:00+05:30",
+            "equity": 99995.16,
+            "return_percent": -0.005
+          },
+          {
+            "ts": "2026-02-11T15:29:00+05:30",
+            "equity": 99798.31,
+            "return_percent": -0.202
+          },
+          {
+            "ts": "2026-02-12T15:29:00+05:30",
+            "equity": 99128.57,
+            "return_percent": -0.871
+          },
+          {
+            "ts": "2026-02-13T15:29:00+05:30",
+            "equity": 98952.17,
+            "return_percent": -1.048
+          },
+          {
+            "ts": "2026-02-16T15:29:00+05:30",
+            "equity": 99075.37,
+            "return_percent": -0.925
+          },
+          {
+            "ts": "2026-02-17T15:29:00+05:30",
+            "equity": 99236.17,
+            "return_percent": -0.764
+          },
+          {
+            "ts": "2026-02-18T15:29:00+05:30",
+            "equity": 99214.97,
+            "return_percent": -0.785
+          },
+          {
+            "ts": "2026-02-19T15:29:00+05:30",
+            "equity": 99089.77,
+            "return_percent": -0.91
+          },
+          {
+            "ts": "2026-02-20T15:29:00+05:30",
+            "equity": 99125.99,
+            "return_percent": -0.874
+          },
+          {
+            "ts": "2026-02-23T15:29:00+05:30",
+            "equity": 99036.39,
+            "return_percent": -0.964
+          },
+          {
+            "ts": "2026-02-24T15:29:00+05:30",
+            "equity": 98714.67,
+            "return_percent": -1.285
+          },
+          {
+            "ts": "2026-02-25T15:29:00+05:30",
+            "equity": 98727.87,
+            "return_percent": -1.272
+          },
+          {
+            "ts": "2026-02-26T15:29:00+05:30",
+            "equity": 98641.87,
+            "return_percent": -1.358
+          },
+          {
+            "ts": "2026-02-27T15:29:00+05:30",
+            "equity": 98567.07,
+            "return_percent": -1.433
+          },
+          {
+            "ts": "2026-03-02T15:29:00+05:30",
+            "equity": 98237.18,
+            "return_percent": -1.763
+          },
+          {
+            "ts": "2026-03-04T15:29:00+05:30",
+            "equity": 98087.42,
+            "return_percent": -1.913
+          },
+          {
+            "ts": "2026-03-05T15:29:00+05:30",
+            "equity": 97947.96,
+            "return_percent": -2.052
+          },
+          {
+            "ts": "2026-03-06T15:29:00+05:30",
+            "equity": 97903.56,
+            "return_percent": -2.096
+          },
+          {
+            "ts": "2026-03-09T15:29:00+05:30",
+            "equity": 97591.6,
+            "return_percent": -2.408
+          },
+          {
+            "ts": "2026-03-10T15:29:00+05:30",
+            "equity": 97599.18,
+            "return_percent": -2.401
+          },
+          {
+            "ts": "2026-03-11T15:29:00+05:30",
+            "equity": 97274.38,
+            "return_percent": -2.726
+          },
+          {
+            "ts": "2026-03-12T15:29:00+05:30",
+            "equity": 97527.58,
+            "return_percent": -2.472
+          },
+          {
+            "ts": "2026-03-13T15:29:00+05:30",
+            "equity": 96600.08,
+            "return_percent": -3.4
+          },
+          {
+            "ts": "2026-03-16T15:29:00+05:30",
+            "equity": 96232.29,
+            "return_percent": -3.768
+          },
+          {
+            "ts": "2026-03-17T15:29:00+05:30",
+            "equity": 96230.42,
+            "return_percent": -3.77
+          },
+          {
+            "ts": "2026-03-18T15:29:00+05:30",
+            "equity": 97027.87,
+            "return_percent": -2.972
+          },
+          {
+            "ts": "2026-03-19T15:29:00+05:30",
+            "equity": 95398.46,
+            "return_percent": -4.602
+          },
+          {
+            "ts": "2026-03-20T15:29:00+05:30",
+            "equity": 96015.66,
+            "return_percent": -3.984
+          },
+          {
+            "ts": "2026-03-23T15:29:00+05:30",
+            "equity": 95472.21,
+            "return_percent": -4.528
+          },
+          {
+            "ts": "2026-03-24T15:29:00+05:30",
+            "equity": 96070.71,
+            "return_percent": -3.929
+          },
+          {
+            "ts": "2026-03-25T15:29:00+05:30",
+            "equity": 96272.86,
+            "return_percent": -3.727
+          },
+          {
+            "ts": "2026-03-27T15:29:00+05:30",
+            "equity": 95877.46,
+            "return_percent": -4.123
+          },
+          {
+            "ts": "2026-03-30T15:29:00+05:30",
+            "equity": 95061.21,
+            "return_percent": -4.939
+          },
+          {
+            "ts": "2026-04-01T15:29:00+05:30",
+            "equity": 95105.49,
+            "return_percent": -4.895
+          },
+          {
+            "ts": "2026-04-02T15:29:00+05:30",
+            "equity": 95485.69,
+            "return_percent": -4.514
+          },
+          {
+            "ts": "2026-04-06T15:29:00+05:30",
+            "equity": 95854.94,
+            "return_percent": -4.145
+          },
+          {
+            "ts": "2026-04-07T15:29:00+05:30",
+            "equity": 95877.94,
+            "return_percent": -4.122
+          },
+          {
+            "ts": "2026-04-08T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-09T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-10T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-13T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-15T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-16T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-17T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-20T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-21T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-22T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-23T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-24T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-27T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-28T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-29T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-04-30T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-04T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-05T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-06T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-07T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-08T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-11T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-12T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-13T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-14T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-15T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-18T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-19T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-20T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-21T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-22T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-25T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-26T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-27T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-05-29T15:29:00+05:30",
+            "equity": 96169.74,
+            "return_percent": -3.83
+          },
+          {
+            "ts": "2026-06-01T15:29:00+05:30",
+            "equity": 96064.06,
+            "return_percent": -3.936
+          },
+          {
+            "ts": "2026-06-02T15:29:00+05:30",
+            "equity": 96091.06,
+            "return_percent": -3.909
+          },
+          {
+            "ts": "2026-06-03T15:29:00+05:30",
+            "equity": 96099.7,
+            "return_percent": -3.9
+          },
+          {
+            "ts": "2026-06-04T15:29:00+05:30",
+            "equity": 96118.5,
+            "return_percent": -3.882
+          },
+          {
+            "ts": "2026-06-05T15:29:00+05:30",
+            "equity": 96048.2,
+            "return_percent": -3.952
+          },
+          {
+            "ts": "2026-06-08T15:29:00+05:30",
+            "equity": 96002.6,
+            "return_percent": -3.997
+          },
+          {
+            "ts": "2026-06-09T15:29:00+05:30",
+            "equity": 95828.2,
+            "return_percent": -4.172
+          },
+          {
+            "ts": "2026-06-10T15:29:00+05:30",
+            "equity": 95662.54,
+            "return_percent": -4.337
+          },
+          {
+            "ts": "2026-06-11T15:29:00+05:30",
+            "equity": 95575.63,
+            "return_percent": -4.424
+          },
+          {
+            "ts": "2026-06-12T15:29:00+05:30",
+            "equity": 95502.74,
+            "return_percent": -4.497
+          },
+          {
+            "ts": "2026-06-15T15:29:00+05:30",
+            "equity": 95283.24,
+            "return_percent": -4.717
+          },
+          {
+            "ts": "2026-06-16T15:29:00+05:30",
+            "equity": 95675.29,
+            "return_percent": -4.325
+          },
+          {
+            "ts": "2026-06-17T15:29:00+05:30",
+            "equity": 95568.19,
+            "return_percent": -4.432
+          },
+          {
+            "ts": "2026-06-18T15:29:00+05:30",
+            "equity": 95765.39,
+            "return_percent": -4.235
+          },
+          {
+            "ts": "2026-06-19T15:29:00+05:30",
+            "equity": 95855.44,
+            "return_percent": -4.145
+          },
+          {
+            "ts": "2026-06-22T15:29:00+05:30",
+            "equity": 95881.29,
+            "return_percent": -4.119
+          },
+          {
+            "ts": "2026-06-23T15:29:00+05:30",
+            "equity": 95796.84,
+            "return_percent": -4.203
+          },
+          {
+            "ts": "2026-06-24T15:29:00+05:30",
+            "equity": 95500.63,
+            "return_percent": -4.499
+          },
+          {
+            "ts": "2026-06-25T15:29:00+05:30",
+            "equity": 95015.15,
+            "return_percent": -4.985
+          },
+          {
+            "ts": "2026-06-29T15:29:00+05:30",
+            "equity": 94886.04,
+            "return_percent": -5.114
+          },
+          {
+            "ts": "2026-06-30T15:29:00+05:30",
+            "equity": 94958.59,
+            "return_percent": -5.041
+          },
+          {
+            "ts": "2026-07-01T15:29:00+05:30",
+            "equity": 95111.44,
+            "return_percent": -4.889
+          },
+          {
+            "ts": "2026-07-02T15:29:00+05:30",
+            "equity": 95233.81,
+            "return_percent": -4.766
+          },
+          {
+            "ts": "2026-07-03T15:29:00+05:30",
+            "equity": 95260.41,
+            "return_percent": -4.74
+          },
+          {
+            "ts": "2026-07-06T15:29:00+05:30",
+            "equity": 95497.41,
+            "return_percent": -4.503
+          },
+          {
+            "ts": "2026-07-07T15:29:00+05:30",
+            "equity": 95453.26,
+            "return_percent": -4.547
+          },
+          {
+            "ts": "2026-07-08T15:29:00+05:30",
+            "equity": 95435.96,
+            "return_percent": -4.564
+          },
+          {
+            "ts": "2026-07-09T15:29:00+05:30",
+            "equity": 95300.96,
+            "return_percent": -4.699
+          },
+          {
+            "ts": "2026-07-10T15:29:00+05:30",
+            "equity": 95323.91,
+            "return_percent": -4.676
+          },
+          {
+            "ts": "2026-07-13T15:29:00+05:30",
+            "equity": 95312.82,
+            "return_percent": -4.687
+          },
+          {
+            "ts": "2026-07-14T15:29:00+05:30",
+            "equity": 95312.82,
+            "return_percent": -4.687
+          },
+          {
+            "ts": "2026-07-15T15:29:00+05:30",
+            "equity": 95312.82,
+            "return_percent": -4.687
+          },
+          {
+            "ts": "2026-07-16T15:29:00+05:30",
+            "equity": 95250.22,
+            "return_percent": -4.75
+          },
+          {
+            "ts": "2026-07-17T15:29:00+05:30",
+            "equity": 95328.02,
+            "return_percent": -4.672
+          },
+          {
+            "ts": "2026-07-20T15:29:00+05:30",
+            "equity": 95420.95,
+            "return_percent": -4.579
+          },
+          {
+            "ts": "2026-07-21T15:29:00+05:30",
+            "equity": 95316.85,
+            "return_percent": -4.683
+          },
+          {
+            "ts": "2026-07-22T15:29:00+05:30",
+            "equity": 95096.05,
+            "return_percent": -4.904
+          },
+          {
+            "ts": "2026-07-23T15:29:00+05:30",
+            "equity": 94449.6,
+            "return_percent": -5.55
+          },
+          {
+            "ts": "2026-07-24T15:29:00+05:30",
+            "equity": 94485.23,
+            "return_percent": -5.515
+          },
+          {
+            "ts": "2026-07-27T15:29:00+05:30",
+            "equity": 94527.43,
+            "return_percent": -5.473
+          },
+          {
+            "ts": "2026-07-28T15:29:00+05:30",
+            "equity": 94551.43,
+            "return_percent": -5.449
+          },
+          {
+            "ts": "2026-07-29T15:29:00+05:30",
+            "equity": 94872.05,
+            "return_percent": -5.128
+          },
+          {
+            "ts": "2026-07-30T15:29:00+05:30",
+            "equity": 94826.55,
+            "return_percent": -5.173
+          },
+          {
+            "ts": "2026-07-31T15:29:00+05:30",
+            "equity": 94830.75,
+            "return_percent": -5.169
+          },
+          {
+            "ts": "2026-08-03T15:29:00+05:30",
+            "equity": 95128.25,
+            "return_percent": -4.872
+          },
+          {
+            "ts": "2026-08-04T15:29:00+05:30",
+            "equity": 95056.85,
+            "return_percent": -4.943
+          },
+          {
+            "ts": "2026-08-05T15:29:00+05:30",
+            "equity": 95001.55,
+            "return_percent": -4.998
+          },
+          {
+            "ts": "2026-08-06T15:29:00+05:30",
+            "equity": 95016.25,
+            "return_percent": -4.984
+          },
+          {
+            "ts": "2026-08-07T15:29:00+05:30",
+            "equity": 94890.25,
+            "return_percent": -5.11
+          }
+        ],
+        "monthly": [
+          {
+            "month": "2025-12",
+            "opening_equity": 100000.0,
+            "equity": 100549.18,
+            "pnl": 549.18,
+            "return_percent": 0.5492,
+            "as_of": "2025-12-31T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-01",
+            "opening_equity": 100549.18,
+            "equity": 99414.51,
+            "pnl": -1134.67,
+            "return_percent": -1.1285,
+            "as_of": "2026-01-30T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-02",
+            "opening_equity": 99414.51,
+            "equity": 98567.07,
+            "pnl": -847.44,
+            "return_percent": -0.8524,
+            "as_of": "2026-02-27T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-03",
+            "opening_equity": 98567.07,
+            "equity": 95061.21,
+            "pnl": -3505.86,
+            "return_percent": -3.5568,
+            "as_of": "2026-03-30T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-04",
+            "opening_equity": 95061.21,
+            "equity": 96169.74,
+            "pnl": 1108.53,
+            "return_percent": 1.1661,
+            "as_of": "2026-04-30T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-05",
+            "opening_equity": 96169.74,
+            "equity": 96169.74,
+            "pnl": 0.0,
+            "return_percent": 0.0,
+            "as_of": "2026-05-29T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-06",
+            "opening_equity": 96169.74,
+            "equity": 94958.59,
+            "pnl": -1211.15,
+            "return_percent": -1.2594,
+            "as_of": "2026-06-30T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-07",
+            "opening_equity": 94958.59,
+            "equity": 94830.75,
+            "pnl": -127.84,
+            "return_percent": -0.1346,
+            "as_of": "2026-07-31T15:29:00+05:30",
+            "partial": true
+          },
+          {
+            "month": "2026-08",
+            "opening_equity": 94830.75,
+            "equity": 94890.25,
+            "pnl": 59.5,
+            "return_percent": 0.0627,
+            "as_of": "2026-08-07T15:29:00+05:30",
+            "partial": true
+          }
+        ],
+        "trades": [
+          {
+            "seq": 1,
+            "symbol": "ONGC.NS",
+            "side": "buy",
+            "qty": 43,
+            "price": 231.87,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 90009.59,
+            "note": "2025-12-17T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 2,
+            "symbol": "APOLLOHOSP.NS",
+            "side": "buy",
+            "qty": 1,
+            "price": 6924.96,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 83064.63,
+            "note": "2025-12-18T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 3,
+            "symbol": "APOLLOHOSP.NS",
+            "side": "sell",
+            "qty": 1.0,
+            "price": 7168.21,
+            "commission": 20.0,
+            "realized_pnl": 243.25,
+            "cash_after": 90212.84,
+            "note": "2025-12-24T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 4,
+            "symbol": "ONGC.NS",
+            "side": "sell",
+            "qty": 43.0,
+            "price": 241.14,
+            "commission": 20.0,
+            "realized_pnl": 398.61,
+            "cash_after": 100561.86,
+            "note": "2026-01-02T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 5,
+            "symbol": "DRREDDY.NS",
+            "side": "buy",
+            "qty": 8,
+            "price": 1207.6,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 90881.06,
+            "note": "2026-01-09T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 6,
+            "symbol": "RELIANCE.NS",
+            "side": "buy",
+            "qty": 6,
+            "price": 1444.72,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 82192.74,
+            "note": "2026-01-14T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 7,
+            "symbol": "DRREDDY.NS",
+            "side": "sell",
+            "qty": 8.0,
+            "price": 1175.86,
+            "commission": 20.0,
+            "realized_pnl": -253.92,
+            "cash_after": 91579.62,
+            "note": "2026-01-14T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 8,
+            "symbol": "DRREDDY.NS",
+            "side": "buy",
+            "qty": 8,
+            "price": 1184.59,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 82082.9,
+            "note": "2026-01-16T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 9,
+            "symbol": "RELIANCE.NS",
+            "side": "sell",
+            "qty": 6.0,
+            "price": 1411.87,
+            "commission": 20.0,
+            "realized_pnl": -197.1,
+            "cash_after": 90534.12,
+            "note": "2026-01-19T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 10,
+            "symbol": "RELIANCE.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1411.41,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 80634.25,
+            "note": "2026-01-20T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 11,
+            "symbol": "ADANIPORTS.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1372.39,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 71007.52,
+            "note": "2026-01-21T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 12,
+            "symbol": "DRREDDY.NS",
+            "side": "sell",
+            "qty": 8.0,
+            "price": 1155.4,
+            "commission": 20.0,
+            "realized_pnl": -233.52,
+            "cash_after": 80230.72,
+            "note": "2026-01-21T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 13,
+            "symbol": "LT.NS",
+            "side": "buy",
+            "qty": 2,
+            "price": 3799.9,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 72610.92,
+            "note": "2026-01-23T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 14,
+            "symbol": "ADANIPORTS.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1326.49,
+            "commission": 20.0,
+            "realized_pnl": -321.3,
+            "cash_after": 81876.35,
+            "note": "2026-01-23T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 15,
+            "symbol": "HDFCLIFE.NS",
+            "side": "buy",
+            "qty": 13,
+            "price": 712.46,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 72594.37,
+            "note": "2026-01-27T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 16,
+            "symbol": "RELIANCE.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1369.9,
+            "commission": 20.0,
+            "realized_pnl": -290.57,
+            "cash_after": 82163.67,
+            "note": "2026-01-27T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 17,
+            "symbol": "BAJAJFINSV.NS",
+            "side": "buy",
+            "qty": 5,
+            "price": 1924.96,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 72518.87,
+            "note": "2026-01-28T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 18,
+            "symbol": "ASIANPAINT.NS",
+            "side": "buy",
+            "qty": 3,
+            "price": 2513.06,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 64959.69,
+            "note": "2026-01-29T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 19,
+            "symbol": "LT.NS",
+            "side": "sell",
+            "qty": 2.0,
+            "price": 3956.33,
+            "commission": 20.0,
+            "realized_pnl": 312.86,
+            "cash_after": 72852.35,
+            "note": "2026-01-29T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 20,
+            "symbol": "SUNPHARMA.NS",
+            "side": "buy",
+            "qty": 6,
+            "price": 1590.09,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 63291.81,
+            "note": "2026-01-30T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 21,
+            "symbol": "RELIANCE.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1396.7,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 53494.91,
+            "note": "2026-02-01T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 22,
+            "symbol": "ASIANPAINT.NS",
+            "side": "sell",
+            "qty": 3.0,
+            "price": 2396.01,
+            "commission": 20.0,
+            "realized_pnl": -351.15,
+            "cash_after": 60662.94,
+            "note": "2026-02-01T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 23,
+            "symbol": "RELIANCE.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1353.96,
+            "commission": 20.0,
+            "realized_pnl": -299.18,
+            "cash_after": 70120.66,
+            "note": "2026-02-01T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 24,
+            "symbol": "BHARTIARTL.NS",
+            "side": "buy",
+            "qty": 5,
+            "price": 1937.07,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 60415.31,
+            "note": "2026-02-02T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 25,
+            "symbol": "BAJAJFINSV.NS",
+            "side": "sell",
+            "qty": 5.0,
+            "price": 2018.69,
+            "commission": 20.0,
+            "realized_pnl": 468.65,
+            "cash_after": 70488.76,
+            "note": "2026-02-03T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 26,
+            "symbol": "BHARTIARTL.NS",
+            "side": "sell",
+            "qty": 5.0,
+            "price": 2048.97,
+            "commission": 20.0,
+            "realized_pnl": 559.5,
+            "cash_after": 80713.61,
+            "note": "2026-02-03T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 27,
+            "symbol": "SUNPHARMA.NS",
+            "side": "sell",
+            "qty": 6.0,
+            "price": 1709.05,
+            "commission": 20.0,
+            "realized_pnl": 713.76,
+            "cash_after": 90947.91,
+            "note": "2026-02-03T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 28,
+            "symbol": "ASIANPAINT.NS",
+            "side": "buy",
+            "qty": 4,
+            "price": 2405.2,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 81307.11,
+            "note": "2026-02-09T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 29,
+            "symbol": "INFY.NS",
+            "side": "buy",
+            "qty": 6,
+            "price": 1500.75,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 72282.61,
+            "note": "2026-02-10T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 30,
+            "symbol": "HCLTECH.NS",
+            "side": "buy",
+            "qty": 6,
+            "price": 1529.76,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 63084.05,
+            "note": "2026-02-12T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 31,
+            "symbol": "INFY.NS",
+            "side": "sell",
+            "qty": 6.0,
+            "price": 1428.19,
+            "commission": 20.0,
+            "realized_pnl": -435.36,
+            "cash_after": 71633.19,
+            "note": "2026-02-12T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 32,
+            "symbol": "HCLTECH.NS",
+            "side": "sell",
+            "qty": 6.0,
+            "price": 1487.62,
+            "commission": 20.0,
+            "realized_pnl": -252.84,
+            "cash_after": 80538.91,
+            "note": "2026-02-12T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 33,
+            "symbol": "HDFCLIFE.NS",
+            "side": "sell",
+            "qty": 13.0,
+            "price": 689.82,
+            "commission": 20.0,
+            "realized_pnl": -294.32,
+            "cash_after": 89486.57,
+            "note": "2026-02-12T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 34,
+            "symbol": "TECHM.NS",
+            "side": "buy",
+            "qty": 6,
+            "price": 1465.73,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 80672.19,
+            "note": "2026-02-20T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 35,
+            "symbol": "TECHM.NS",
+            "side": "sell",
+            "qty": 6.0,
+            "price": 1401.68,
+            "commission": 20.0,
+            "realized_pnl": -384.3,
+            "cash_after": 89062.27,
+            "note": "2026-02-24T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 36,
+            "symbol": "TECHM.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1335.67,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 79692.58,
+            "note": "2026-03-02T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 37,
+            "symbol": "ASIANPAINT.NS",
+            "side": "sell",
+            "qty": 4.0,
+            "price": 2286.7,
+            "commission": 20.0,
+            "realized_pnl": -474.0,
+            "cash_after": 88819.38,
+            "note": "2026-03-02T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 38,
+            "symbol": "ASIANPAINT.NS",
+            "side": "buy",
+            "qty": 4,
+            "price": 2261.83,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 79752.06,
+            "note": "2026-03-04T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 39,
+            "symbol": "ASIANPAINT.NS",
+            "side": "sell",
+            "qty": 4.0,
+            "price": 2224.24,
+            "commission": 20.0,
+            "realized_pnl": -150.36,
+            "cash_after": 88629.02,
+            "note": "2026-03-04T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 40,
+            "symbol": "ASIANPAINT.NS",
+            "side": "buy",
+            "qty": 4,
+            "price": 2286.34,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 79463.66,
+            "note": "2026-03-05T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 41,
+            "symbol": "ASIANPAINT.NS",
+            "side": "sell",
+            "qty": 4.0,
+            "price": 2198.46,
+            "commission": 20.0,
+            "realized_pnl": -351.52,
+            "cash_after": 88237.5,
+            "note": "2026-03-09T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 42,
+            "symbol": "HDFCLIFE.NS",
+            "side": "buy",
+            "qty": 14,
+            "price": 654.28,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 79057.58,
+            "note": "2026-03-10T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 43,
+            "symbol": "BHARTIARTL.NS",
+            "side": "buy",
+            "qty": 5,
+            "price": 1841.92,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 69827.98,
+            "note": "2026-03-11T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 44,
+            "symbol": "BPCL.NS",
+            "side": "buy",
+            "qty": 30,
+            "price": 318.86,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 60242.18,
+            "note": "2026-03-12T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 45,
+            "symbol": "AXISBANK.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1224.61,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 51649.91,
+            "note": "2026-03-13T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 46,
+            "symbol": "BHARTIARTL.NS",
+            "side": "sell",
+            "qty": 5.0,
+            "price": 1780.21,
+            "commission": 20.0,
+            "realized_pnl": -308.55,
+            "cash_after": 60530.96,
+            "note": "2026-03-13T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 47,
+            "symbol": "HDFCLIFE.NS",
+            "side": "sell",
+            "qty": 14.0,
+            "price": 628.53,
+            "commission": 20.0,
+            "realized_pnl": -360.5,
+            "cash_after": 69310.38,
+            "note": "2026-03-13T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 48,
+            "symbol": "HCLTECH.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1313.46,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 60096.16,
+            "note": "2026-03-16T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 49,
+            "symbol": "AXISBANK.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1185.19,
+            "commission": 20.0,
+            "realized_pnl": -275.94,
+            "cash_after": 68372.49,
+            "note": "2026-03-16T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 50,
+            "symbol": "BPCL.NS",
+            "side": "sell",
+            "qty": 30.0,
+            "price": 306.77,
+            "commission": 20.0,
+            "realized_pnl": -362.7,
+            "cash_after": 77555.59,
+            "note": "2026-03-16T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 51,
+            "symbol": "AXISBANK.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1220.31,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 68993.42,
+            "note": "2026-03-17T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 52,
+            "symbol": "BPCL.NS",
+            "side": "buy",
+            "qty": 31,
+            "price": 300.95,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 59643.97,
+            "note": "2026-03-18T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 53,
+            "symbol": "CIPLA.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1254.53,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 50842.26,
+            "note": "2026-03-19T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 54,
+            "symbol": "BPCL.NS",
+            "side": "sell",
+            "qty": 31.0,
+            "price": 279.91,
+            "commission": 20.0,
+            "realized_pnl": -652.24,
+            "cash_after": 59499.47,
+            "note": "2026-03-23T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 55,
+            "symbol": "CIPLA.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1228.62,
+            "commission": 20.0,
+            "realized_pnl": -181.37,
+            "cash_after": 68079.81,
+            "note": "2026-03-23T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 56,
+            "symbol": "HDFCLIFE.NS",
+            "side": "buy",
+            "qty": 15,
+            "price": 604.25,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 58996.06,
+            "note": "2026-03-25T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 57,
+            "symbol": "AXISBANK.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1163.85,
+            "commission": 20.0,
+            "realized_pnl": -395.22,
+            "cash_after": 67123.01,
+            "note": "2026-03-30T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 58,
+            "symbol": "TECHM.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1411.89,
+            "commission": 20.0,
+            "realized_pnl": 533.54,
+            "cash_after": 76986.24,
+            "note": "2026-04-01T09:15:00+05:30 maximum holding period"
+          },
+          {
+            "seq": 59,
+            "symbol": "HDFCLIFE.NS",
+            "side": "sell",
+            "qty": 15.0,
+            "price": 577.23,
+            "commission": 20.0,
+            "realized_pnl": -405.3,
+            "cash_after": 85624.69,
+            "note": "2026-04-01T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 60,
+            "symbol": "SBILIFE.NS",
+            "side": "buy",
+            "qty": 5,
+            "price": 1760.88,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 76800.29,
+            "note": "2026-04-02T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 61,
+            "symbol": "HCLTECH.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1412.95,
+            "commission": 20.0,
+            "realized_pnl": 696.43,
+            "cash_after": 86670.94,
+            "note": "2026-04-06T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 62,
+            "symbol": "SBILIFE.NS",
+            "side": "sell",
+            "qty": 5.0,
+            "price": 1903.76,
+            "commission": 20.0,
+            "realized_pnl": 714.4,
+            "cash_after": 96169.74,
+            "note": "2026-04-08T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 63,
+            "symbol": "ONGC.NS",
+            "side": "buy",
+            "qty": 36,
+            "price": 266.68,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 86549.26,
+            "note": "2026-06-01T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 64,
+            "symbol": "BRITANNIA.NS",
+            "side": "buy",
+            "qty": 1,
+            "price": 5132.56,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 81396.7,
+            "note": "2026-06-03T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 65,
+            "symbol": "ONGC.NS",
+            "side": "sell",
+            "qty": 36.0,
+            "price": 253.19,
+            "commission": 20.0,
+            "realized_pnl": -485.64,
+            "cash_after": 90491.54,
+            "note": "2026-06-10T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 66,
+            "symbol": "NTPC.NS",
+            "side": "buy",
+            "qty": 27,
+            "price": 352.18,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 80962.68,
+            "note": "2026-06-11T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 67,
+            "symbol": "ONGC.NS",
+            "side": "buy",
+            "qty": 38,
+            "price": 250.43,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 71426.34,
+            "note": "2026-06-12T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 68,
+            "symbol": "ONGC.NS",
+            "side": "sell",
+            "qty": 38.0,
+            "price": 241.88,
+            "commission": 20.0,
+            "realized_pnl": -324.9,
+            "cash_after": 80597.78,
+            "note": "2026-06-24T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 69,
+            "symbol": "ONGC.NS",
+            "side": "buy",
+            "qty": 39,
+            "price": 240.92,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 71181.9,
+            "note": "2026-06-25T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 70,
+            "symbol": "ONGC.NS",
+            "side": "sell",
+            "qty": 39.0,
+            "price": 230.96,
+            "commission": 20.0,
+            "realized_pnl": -388.44,
+            "cash_after": 80169.34,
+            "note": "2026-06-29T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 71,
+            "symbol": "ONGC.NS",
+            "side": "buy",
+            "qty": 40,
+            "price": 234.07,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 70786.54,
+            "note": "2026-06-30T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 72,
+            "symbol": "BRITANNIA.NS",
+            "side": "sell",
+            "qty": 1.0,
+            "price": 5356.12,
+            "commission": 20.0,
+            "realized_pnl": 223.56,
+            "cash_after": 76122.66,
+            "note": "2026-07-02T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 73,
+            "symbol": "ONGC.NS",
+            "side": "sell",
+            "qty": 40.0,
+            "price": 247.96,
+            "commission": 20.0,
+            "realized_pnl": 555.6,
+            "cash_after": 86021.06,
+            "note": "2026-07-08T09:15:00+05:30 take profit"
+          },
+          {
+            "seq": 74,
+            "symbol": "NTPC.NS",
+            "side": "sell",
+            "qty": 27.0,
+            "price": 344.88,
+            "commission": 20.0,
+            "realized_pnl": -197.1,
+            "cash_after": 95312.82,
+            "note": "2026-07-13T09:15:00+05:30 maximum holding period"
+          },
+          {
+            "seq": 75,
+            "symbol": "LT.NS",
+            "side": "buy",
+            "qty": 2,
+            "price": 3796.9,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 87699.02,
+            "note": "2026-07-16T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 76,
+            "symbol": "DRREDDY.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1213.91,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 79181.65,
+            "note": "2026-07-20T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 77,
+            "symbol": "DRREDDY.NS",
+            "side": "sell",
+            "qty": 7.0,
+            "price": 1100.45,
+            "commission": 20.0,
+            "realized_pnl": -794.22,
+            "cash_after": 86864.8,
+            "note": "2026-07-23T09:15:00+05:30 stop loss"
+          },
+          {
+            "seq": 78,
+            "symbol": "AXISBANK.NS",
+            "side": "buy",
+            "qty": 7,
+            "price": 1217.41,
+            "commission": 20.0,
+            "realized_pnl": 0.0,
+            "cash_after": 78322.93,
+            "note": "2026-07-24T09:15:00+05:30 mean_reversion"
+          },
+          {
+            "seq": 79,
+            "symbol": "LT.NS",
+            "side": "sell",
+            "qty": 2.0,
+            "price": 3960.66,
+            "commission": 20.0,
+            "realized_pnl": 327.52,
+            "cash_after": 86224.25,
+            "note": "2026-07-29T09:15:00+05:30 take profit"
+          }
+        ],
+        "open_positions": [
+          {
+            "symbol": "AXISBANK.NS",
+            "qty": 7.0,
+            "avg_price": 1217.41,
+            "direction": "long",
+            "entry": 1217.41,
+            "stop": 1178.42,
+            "target": 1289.87,
+            "nn_score": null,
+            "reasoned": false,
+            "thesis": "Paper fill"
+          }
+        ],
+        "portfolio": {
+          "currency": "INR",
+          "starting_cash": 100000.0,
+          "cash": 86224.25,
+          "positions_value": 8666.0,
+          "equity": 94890.25,
+          "realized_pnl": -5253.88,
+          "fees_paid": 1580.0,
+          "unrealized_pnl": 144.13,
+          "total_pnl": -5109.75,
+          "return_percent": -5.11,
+          "open_positions": [
+            {
+              "symbol": "AXISBANK.NS",
+              "qty": 7.0,
+              "avg_price": 1217.41,
+              "mark_price": 1238.0,
+              "unrealized_pnl": 144.13
+            }
+          ],
+          "trade_count": 79
+        },
+        "as_of": "2026-08-07T15:29:00+05:30",
+        "mark_age_seconds": 4402376.640881,
+        "halt": "",
+        "note": "Last complete mark, not a live quote. Months remain partial until reviewed.",
+        "evaluation_start": "2025-12-15",
+        "evaluation_end": "2026-08-07",
+        "skipped_missing_holdings": [],
+        "symbols": [
+          "ADANIENT.NS",
+          "ADANIPORTS.NS",
+          "APOLLOHOSP.NS",
+          "ASIANPAINT.NS",
+          "AXISBANK.NS",
+          "BAJAJFINSV.NS",
+          "BAJFINANCE.NS",
+          "BHARTIARTL.NS",
+          "BPCL.NS",
+          "BRITANNIA.NS",
+          "CIPLA.NS",
+          "COALINDIA.NS",
+          "DABUR.NS",
+          "DRREDDY.NS",
+          "EICHERMOT.NS",
+          "GAIL.NS",
+          "GRASIM.NS",
+          "HCLTECH.NS",
+          "HDFCBANK.NS",
+          "HDFCLIFE.NS",
+          "HEROMOTOCO.NS",
+          "HINDALCO.NS",
+          "HINDUNILVR.NS",
+          "ICICIBANK.NS",
+          "INDUSINDBK.NS",
+          "INFY.NS",
+          "ITC.NS",
+          "JSWSTEEL.NS",
+          "KOTAKBANK.NS",
+          "LT.NS",
+          "M&M.NS",
+          "MARUTI.NS",
+          "NESTLEIND.NS",
+          "NTPC.NS",
+          "ONGC.NS",
+          "PIDILITIND.NS",
+          "POWERGRID.NS",
+          "RELIANCE.NS",
+          "SBILIFE.NS",
+          "SBIN.NS",
+          "SUNPHARMA.NS",
+          "TATACONSUM.NS",
+          "TATASTEEL.NS",
+          "TCS.NS",
+          "TECHM.NS",
+          "TITAN.NS",
+          "ULTRACEMCO.NS",
+          "VEDL.NS",
+          "WIPRO.NS"
+        ],
+        "validation": "historical_daily_bar_approximation",
+        "limitations": [
+          "No intra-bar tick ordering or partial fills",
+          "Simultaneous daily opens and order spacing permit at most one new entry per day",
+          "Flat commissions and slippage do not cover all Indian taxes and fees",
+          "Current universe may contain survivorship bias",
+          "Historical account rules do not prove future profitability"
+        ]
+      },
+      "promotion_eligible": false
+    }
+  },
+  "missing_symbols": [
+    "TATAMOTORS.NS"
+  ],
+  "provenance": "Previously researched historical cache; NOT an untouched forward test",
+  "timestamp_repair": "Legacy naive 18:30 UTC candles restored to Asia/Kolkata before date extraction"
+}

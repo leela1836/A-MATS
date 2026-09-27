@@ -28,6 +28,11 @@ def _seed(journal, n=60, seed=0):
         })
         journal.close_decision(did, 110.0 if win else 95.0,
                                "win" if win else "loss", 10.0 if win else -5.0)
+        from datetime import datetime, timedelta, timezone
+        entry = datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(days=i * 2)
+        with journal._conn() as conn:
+            conn.execute("UPDATE decisions SET ts=?, exit_ts=? WHERE id=?",
+                         (entry.isoformat(), (entry + timedelta(days=1)).isoformat(), did))
 
 
 def test_features_round_trip(journal):
@@ -66,7 +71,9 @@ def test_learn_from_experience_only(journal, tmp_path):
     assert out["experience_samples"] == 80
     assert out["bootstrap_samples"] == 0
     assert 0.0 <= out["oos_auc"] <= 1.0
-    assert (tmp_path / "m.json").exists()
+    assert out["saved"] is False
+    assert not (tmp_path / "m.json").exists()
+    assert (tmp_path / "m.candidate.json").exists()
 
 
 def test_learn_refuses_when_too_little(journal, tmp_path):

@@ -30,7 +30,7 @@ def generate(symbols: Optional[list[str]] = None, period: str = "5y",
     not fatal — a universe-wide sweep must survive the odd bad ticker.
     """
     symbols = symbols or load_universe()
-    Xs, ys, dates, syms, rets = [], [], [], [], []
+    Xs, ys, dates, syms, rets, ends = [], [], [], [], [], []
     for sym in symbols:
         try:
             ds = build_dataset([sym], period=period)
@@ -42,17 +42,19 @@ def generate(symbols: Optional[list[str]] = None, period: str = "5y",
             rets.append(ds.returns)
             dates.extend(ds.dates)
             syms.extend(ds.symbols)
+            ends.extend(ds.end_dates or ds.dates)
 
     if not Xs:
         return Dataset(np.empty((0, len(FEATURE_NAMES))), np.empty(0),
                        [], [], np.empty(0), list(FEATURE_NAMES))
     ds = Dataset(np.vstack(Xs), np.concatenate(ys), dates, syms,
-                 np.concatenate(rets), list(FEATURE_NAMES))
+                 np.concatenate(rets), list(FEATURE_NAMES), ends)
     if save and len(ds):
         CACHE.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             CACHE, X=ds.X, y=ds.y, returns=ds.returns,
             dates=np.array(ds.dates, dtype=object), symbols=np.array(ds.symbols, dtype=object),
+            end_dates=np.array(ds.end_dates, dtype=object), schema_version=2,
         )
     return ds
 
@@ -66,6 +68,7 @@ def load_cached() -> Optional[Dataset]:
         return Dataset(
             X=d["X"], y=d["y"], dates=list(d["dates"]), symbols=list(d["symbols"]),
             returns=d["returns"], feature_names=list(FEATURE_NAMES),
+            end_dates=list(d["end_dates"]) if "schema_version" in d and int(d["schema_version"]) == 2 else None,
         )
     except Exception:
         return None

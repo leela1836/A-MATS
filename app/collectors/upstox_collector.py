@@ -83,7 +83,7 @@ def instrument_key(symbol: str) -> Optional[str]:
 def _candles_to_df(candles: list) -> pd.DataFrame:
     """Upstox candles ([ts, o, h, l, c, v, oi], newest-first) -> yfinance shape."""
     df = pd.DataFrame(candles, columns=["ts", "Open", "High", "Low", "Close", "Volume", "OI"])
-    df["ts"] = pd.to_datetime(df["ts"], utc=True).dt.tz_localize(None)
+    df["ts"] = pd.to_datetime(df["ts"], utc=True).dt.tz_convert("Asia/Kolkata")
     df = df.sort_values("ts").set_index("ts")
     out = df[["Open", "High", "Low", "Close", "Volume"]].astype(float)
     out.index.name = "Date"

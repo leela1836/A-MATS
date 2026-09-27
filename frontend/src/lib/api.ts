@@ -298,7 +298,7 @@ export interface EquityPoint {
   benchmark: number | null;
 }
 
-export async function getJournalEquity(): Promise<{ equity_curve: EquityPoint[]; stats: JournalStats }> {
+export async function getJournalEquity(): Promise<{ equity_curve: EquityPoint[]; research_stats: JournalStats }> {
   const res = await fetch(`${API_BASE}/journal/equity`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Journal equity fetch failed (${res.status})`);
   return res.json();

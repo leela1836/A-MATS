@@ -355,7 +355,7 @@ class Journal:
         outcome — the agent's own experience, ready to learn from."""
         with self._conn() as c:
             rows = c.execute(
-                "SELECT features, outcome, pnl_pct, ts FROM decisions "
+                "SELECT features, outcome, pnl_pct, ts, exit_ts FROM decisions "
                 "WHERE status='closed' AND direction IN ('long','short') "
                 "AND features IS NOT NULL AND outcome IN ('win','loss') ORDER BY ts"
             ).fetchall()
