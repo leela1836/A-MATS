@@ -37,6 +37,10 @@ data/nse_cache/
 *.db
 *.sqlite3
 
+# Graphify local state
+graphify-out/.graphify_root
+graphify-out/cache/
+
 # IDE / OS
 .vscode/
 .idea/
