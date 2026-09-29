@@ -330,6 +330,9 @@ class Journal:
                 "SELECT scan_id, direction, ts, exit_ts, outcome, pnl_pct "
                 "FROM decisions"
             ).fetchall()]
+            snapshots = [dict(r) for r in c.execute(
+                "SELECT scan_id, ts FROM equity WHERE scan_id NOT LIKE 'manage-%'"
+            ).fetchall()]
         opened = [r for r in rows if _ist_date(r["ts"]) == today]
         closed = [r for r in rows if _ist_date(r["exit_ts"]) == today
                   and r["outcome"] in ("win", "loss")]
@@ -340,7 +343,7 @@ class Journal:
         pnl = sum(float(r["pnl_pct"] or 0.0) for r in closed)
         return {
             "date": today,
-            "scans": len({r["scan_id"] for r in opened}),
+            "scans": len({r["scan_id"] for r in opened + snapshots if _ist_date(r["ts"]) == today}),
             "opened": longs + shorts,
             "longs": longs,
             "shorts": shorts,
@@ -445,7 +448,10 @@ class Journal:
             open_ct = c.execute(
                 "SELECT COUNT(*) FROM decisions WHERE status='open'"
             ).fetchone()[0]
-            scans = c.execute("SELECT COUNT(DISTINCT scan_id) FROM decisions").fetchone()[0]
+            scans = c.execute(
+                "SELECT COUNT(*) FROM (SELECT scan_id FROM decisions UNION "
+                "SELECT scan_id FROM equity WHERE scan_id NOT LIKE 'manage-%')"
+            ).fetchone()[0]
         return {
             "scans": scans,
             "decisions": total,

@@ -70,7 +70,25 @@ def test_equity_curve_and_stats(journal):
                                  "open_positions": [{"symbol": "X"}], "return_percent": 1.0})
     curve = journal.equity_curve()
     assert len(curve) == 2 and curve[0]["equity"] == 100000  # oldest first
-    assert journal.stats()["scans"] == 0  # equity rows don't create decisions
+    assert journal.stats()["scans"] == 2  # completed scans count even without decisions
+
+
+def test_scan_counts_include_no_decision_runs_once_and_use_ist(journal, monkeypatch):
+    monkeypatch.setattr('app.journal.store.today_ist', lambda: '2026-09-29')
+    snapshot = {"equity": 100000, "cash": 100000, "positions_value": 0,
+                "open_positions": [], "return_percent": 0}
+    journal.record_equity('empty', snapshot)
+    journal.record_equity('with-decision', snapshot)
+    journal.record_decision('with-decision', 'X.NS', {'direction': 'hold'})
+    journal.record_equity('yesterday', snapshot)
+    journal.record_equity('manage-tick', snapshot)
+    with journal._conn() as c:
+        c.execute("UPDATE equity SET ts='2026-09-28T19:00:00+00:00'")
+        c.execute("UPDATE decisions SET ts='2026-09-28T19:00:00+00:00'")
+        c.execute("UPDATE equity SET ts='2026-09-28T17:00:00+00:00' WHERE scan_id='yesterday'")
+    assert journal.today_summary()['scans'] == 2
+    assert journal.today_summary()['opened'] == 0
+    assert journal.stats()['scans'] == 3
 
 
 def test_full_scan_writes_track_record(journal):
