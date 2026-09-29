@@ -15,6 +15,20 @@ from app.ml.validator import DEFAULT_MODEL_PATH
 DOCS = Path(__file__).resolve().parent.parent.parent / "docs"
 
 
+def _paper_account() -> dict:
+    from app.execution.accounting import ACCOUNT, paper_report
+    account = paper_report()
+    # Cloud scans must not erase the last export from the continuous runner.
+    published = DOCS / "paper.json"
+    if ACCOUNT.exists():
+        published.write_text(json.dumps(account), encoding="utf-8")
+    elif published.exists():
+        account = json.loads(published.read_text(encoding="utf-8"))
+    if account.get("as_of"):
+        account["mark_age_seconds"] = (datetime.now(timezone.utc) - datetime.fromisoformat(account["as_of"])).total_seconds()
+    return account
+
+
 def _track_record() -> dict:
     j = get_journal()
     decisions = j.recent_decisions(60)
@@ -23,14 +37,14 @@ def _track_record() -> dict:
         if d.get("thesis"):
             d["thesis"] = d["thesis"][:240]
     from app.status.summary import agent_summary
-    from app.execution.accounting import paper_report
+    account = _paper_account()
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "stats": j.stats(),
-        "equity": paper_report()["equity_curve"],
+        "equity": account["equity_curve"],
         "accounting_basis": "paper_fills",
         "decisions": decisions,
-        "summary": agent_summary(j),
+        "summary": agent_summary(j, account=account),
     }
 
 

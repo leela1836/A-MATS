@@ -150,7 +150,7 @@
     <div class="brand">A-MATS<span>autonomous paper agent · NSE</span></div>
     <div class="live"><span class="dot"></span><span id="updated">connecting…</span></div>
   </header>
-  <div class="sub">It screens the market, reasons, paper-trades, and learns — on its own, in the cloud.</div>
+  <div class="sub">Cloud research scans and learning · paper-account snapshots from the continuous runner.</div>
   <div class="note">📄 <b>Paper trading, not advice.</b> Extensive testing shows it does <b>not beat buy-and-hold</b> — run it to watch an agent reason &amp; learn, not for returns.</div>
 
   <div class="nav">
@@ -218,7 +218,8 @@
   <div class="tiles" id="tiles"></div>
 
   <div class="card">
-    <h2>Equity curve <span class="mono" style="color:var(--muted);font-weight:400" id="eqmeta"></span></h2>
+    <h2>Paper-account equity <span class="mono" style="color:var(--muted);font-weight:400" id="eqmeta"></span></h2>
+    <p class="sub" id="accountStatus"></p>
     <div class="chart" id="chart"></div>
   </div>
 
@@ -272,13 +273,13 @@ const inr=n=>n==null?'—':'₹'+Math.round(n).toLocaleString('en-IN');
 let FILTER='all', DATA=null;
 
 function tiles(s,eq){
-  const last=eq.length?eq[eq.length-1]:{equity:null,return_percent:null};
+  const last=DATA.summary?.paper_account?.portfolio||{equity:null,return_percent:null};
   const ret=last.return_percent;
   const t=[
     ['Paper equity',last.equity==null?'—':inr(last.equity),C.fg],
     ['Paper return',ret==null?'—':(ret>=0?'+':'')+ret.toFixed(2)+'%',ret>0?C.green:ret<0?C.red:C.fg],
     ['Research win rate',s.win_rate_pct==null?'—':s.win_rate_pct+'%',C.fg],
-    ['Open',s.open,C.fg],
+    ['Research open',s.open,C.fg],
     ['Decisions',s.decisions,C.fg],
     ['Scans',s.scans,C.fg],
   ];
@@ -288,7 +289,7 @@ function tiles(s,eq){
 
 function chart(eq){
   const el=document.getElementById('chart'); el.innerHTML='';
-  if(eq.length<2){el.innerHTML='<div class="empty">No equity history yet — it fills in as trades resolve.</div>';return;}
+  if(eq.length<2){el.innerHTML='<div class="empty">'+(eq.length?'One daily equity snapshot recorded. The chart needs a second day.':'No published paper-account history yet. Run the continuous paper runner and publish its snapshots.')+'</div>';return;}
   const W=el.clientWidth,H=el.clientHeight,P={t:10,r:12,b:18,l:46};
   const pts=eq.map((p,i)=>({i,v:p.equity,b:(typeof p.benchmark==='number'?p.benchmark:null),ts:p.ts}));
   const hasB=pts.some(p=>p.b!==null);
@@ -385,7 +386,7 @@ function summaryPanel(s){
       <span><span class="${dc}">${esc(x.direction)}</span> <b class="sym">${esc((x.symbol||'').replace('.NS',''))}</b>${x.reasoned?' <span class="llm">✦</span>':''}</span>
       <span class="plan">${x.entry??'—'} → ${x.target??'—'} · stop ${x.stop??'—'}</span></div>
       ${x.thesis?`<div class="th">${esc(x.thesis)}</div>`:''}</div>`;
-  }).join(''):'<div class="mut" style="font-size:12px;color:var(--muted)">Flat — no open positions right now.</div>';
+  }).join(''):'<div class="mut" style="font-size:12px;color:var(--muted)">'+(s.paper_account?.available?'No open positions in the published account snapshot.':'Paper-account positions unavailable.')+'</div>';
 
   const last=L.last, mdl=L.model||{};
   document.getElementById('slearn').innerHTML=(last
@@ -447,6 +448,10 @@ function summaryPanel(s){
 
 function render(){
   summaryPanel(DATA.summary);
+  const account=DATA.summary?.paper_account||{};
+  document.getElementById('accountStatus').textContent=account.available
+    ? 'Last complete account mark: '+new Date(account.as_of).toLocaleString('en-IN')+' · Published snapshot, not a live feed.'
+    : (account.reason||'No complete paper-account mark available.')+' Equity and returns are unavailable; research decisions are not portfolio results.';
   tiles(DATA.stats,DATA.equity);
   const hasB=(DATA.equity||[]).some(p=>typeof p.benchmark==='number');
   document.getElementById('eqmeta').innerHTML=(DATA.equity.length?`· ${DATA.equity.length} snapshots`:'')
@@ -460,9 +465,11 @@ function render(){
 async function load(){
   try{
     const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error('Dashboard data request failed: HTTP '+r.status);
     DATA=await r.json();render();
-  }catch(e){document.getElementById('updated').textContent='no data yet';
-    document.getElementById('tiles').innerHTML='<div class="empty" style="grid-column:1/-1">Waiting for the first scan to publish data…</div>';}
+  }catch(e){document.getElementById('updated').textContent='dashboard update failed';
+    console.error(e);
+    document.getElementById('tiles').innerHTML='<div class="empty" style="grid-column:1/-1">Could not load the dashboard: '+esc(e.message)+'. Check the Pages deployment.</div>';}
 }
 load();
 setInterval(load,60000);

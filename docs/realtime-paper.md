@@ -98,6 +98,37 @@ errors stop the runner. The older `data/portfolio.json` account is separate.
    portfolio and trades APIs now report this same fill-based account. No live feed is published to
    the static GitHub Pages site.
 
+## Publishing paper-account snapshots to GitHub Pages
+
+Pages shows only actual continuous paper-account history. Research decisions and
+their win rate remain separate; they never supply the equity curve. The chart
+needs two daily marks, not two resolved trades.
+
+On the machine running the account, export its latest complete persisted mark:
+
+```powershell
+.venv/Scripts/python.exe -m app.status.build_site
+git add docs/data.json docs/nn.json docs/paper.json
+git commit -m "Publish paper-account snapshot"
+git push
+```
+
+`docs/paper.json` is the public reporting snapshot (portfolio, simulated trades,
+positions and equity history); credentials and the private runner state are not
+published. The export retains the account's original mark timestamp. Later cloud
+research scans reuse this snapshot instead of wiping it when their checkout has
+no local account. Publishing is explicit: starting the runner alone does not push
+updates to GitHub. Run the export again to publish newer marks.
+
+In repository **Settings → Pages → Build and deployment**, select **GitHub Actions**.
+The `Deploy dashboard to GitHub Pages` workflow deploys `docs/` on pushes to
+`master`, can be run manually, and is called directly after each published cloud
+scan. Direct invocation is necessary because a bot's data commit does not trigger
+another push workflow. No paper history can appear until the runner has recorded
+marks and its snapshot has been published.
+
+## Stopping entries and reviewing halts
+
 Create `data/paper.stop` to block new entries while retaining protective exits:
 
 ```powershell

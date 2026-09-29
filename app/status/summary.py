@@ -101,13 +101,13 @@ def _pct(v: Any) -> str:
     return f"{'+' if v >= 0 else ''}{round(v, 2)}%"
 
 
-def agent_summary(journal: Journal | None = None) -> dict[str, Any]:
+def agent_summary(journal: Journal | None = None, account: dict | None = None) -> dict[str, Any]:
     """Assemble the everything-at-a-glance summary."""
     journal = journal or get_journal()
     stats = journal.stats()
     today = journal.today_summary()
     from app.execution.accounting import paper_report
-    account = paper_report()
+    account = paper_report() if account is None else account
     portfolio = account["portfolio"]
     open_positions = journal.open_positions_detail(limit=20)
     learn_events = journal.learning_events(limit=10)

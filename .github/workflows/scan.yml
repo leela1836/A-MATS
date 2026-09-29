@@ -21,6 +21,8 @@ on:
 
 permissions:
   contents: write                # to commit the updated journal back
+  pages: write
+  id-token: write
 
 concurrency:
   group: amats-scan
@@ -29,6 +31,9 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.publish.outputs.publish }}
+      revision: ${{ steps.publish.outputs.revision }}
     steps:
       - uses: actions/checkout@v4
 
@@ -97,6 +102,7 @@ jobs:
         run: python -m app.status.build_site
 
       - name: Commit the journal, model, and site data
+        id: publish
         if: env.PUBLISH == '1'
         run: |
           git config user.name "amats-bot"
@@ -108,6 +114,15 @@ jobs:
             echo "nothing to commit"
           else
             git commit -m "chore(journal): ${SCAN_SESSION} scan $(date -u +%FT%TZ) [skip ci]"
-            git pull --rebase --autostash origin "${{ github.ref_name }}" || true
+            git pull --rebase --autostash origin "${{ github.ref_name }}"
             git push
           fi
+          echo "publish=1" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  pages:
+    needs: scan
+    if: needs.scan.outputs.publish == '1'
+    uses: ./.github/workflows/pages.yml
+    with:
+      revision: ${{ needs.scan.outputs.revision }}
