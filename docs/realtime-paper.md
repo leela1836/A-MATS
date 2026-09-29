@@ -101,10 +101,31 @@ errors stop the runner. The older `data/portfolio.json` account is separate.
 ## Publishing paper-account snapshots to GitHub Pages
 
 Pages shows only actual continuous paper-account history. Research decisions and
-their win rate remain separate; they never supply the equity curve. The chart
-needs two daily marks, not two resolved trades.
+their win rate remain separate; they never supply the equity curve. The first
+cash-funding snapshot is visible immediately; additional daily marks extend it.
 
-On the machine running the account, export its latest complete persisted mark:
+The deployed GitHub workflow now owns `data/realtime_portfolio.json`. Every run
+restores that account and executes `python -m app.execution.cloud --seconds 60`.
+During market hours it prepares signals and consumes fresh Upstox ticks for a
+bounded paper session. Outside the session it makes no orders; a cash-only account
+can still be marked without prices. The existing `UPSTOX_ACCESS_TOKEN` repository
+secret supplies the read-only feed. Missing ticks fail the paper step and are
+reported on the dashboard. Cash, fills and protection are committed before research
+starts, and Pages is published even when a paper/research step reports failure.
+
+This is scheduled paper execution, not uninterrupted monitoring. GitHub schedules
+can be delayed; stops are only evaluated while a session is running. No claim of
+continuous protection or guaranteed fills is made. Use a continuously running host
+for uninterrupted observation. Keep one account writer: do not run a local copy of
+the cloud-owned account concurrently or push an older account over it.
+
+The account is funded once with the configured virtual cash using
+`python -m app.execution.cloud --initialize`. This never resets an existing file.
+Normal scheduled runs refuse to recreate a missing account, preventing an accidental
+loss-history reset. The persisted file contains simulated account state, not API
+credentials. The initial funding record is not a market return or a historical fill.
+
+For a separately managed local account, export its latest complete persisted mark:
 
 ```powershell
 .venv/Scripts/python.exe -m app.status.build_site
@@ -114,11 +135,11 @@ git push
 ```
 
 `docs/paper.json` is the public reporting snapshot (portfolio, simulated trades,
-positions and equity history); credentials and the private runner state are not
-published. The export retains the account's original mark timestamp. Later cloud
+positions and equity history). The cloud account's simulated state is also tracked
+in Git; credentials are never included. The export retains the original mark timestamp. Later cloud
 research scans reuse this snapshot instead of wiping it when their checkout has
-no local account. Publishing is explicit: starting the runner alone does not push
-updates to GitHub. Run the export again to publish newer marks.
+no local account. Local continuous-runner publishing is explicit; the deployed
+GitHub workflow performs these exports automatically for its own account.
 
 In repository **Settings → Pages → Build and deployment**, select **GitHub Actions**.
 The `Deploy dashboard to GitHub Pages` workflow deploys `docs/` on pushes to

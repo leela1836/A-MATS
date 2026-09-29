@@ -81,15 +81,14 @@
   </header>
 
   <h1>An agent that reasons about the market, trades on paper, and learns from how it did — honestly.</h1>
-  <p class="lede">A-MATS (Autonomous Multi-Agent Trading System) runs on its own in the cloud, three times a
-  trading day. No human presses go. It screens the whole NSE universe, builds a reasoned plan for the
-  strongest setups, records every decision, and closes the loop by learning from the trades it actually took.</p>
+  <p class="lede">A-MATS runs scheduled research scans and paper-account sessions on GitHub.
+  Research decisions and model training are separate from simulated fills. Each workflow restores
+  the same virtual account, collects fresh market ticks during the session, and publishes its balance.</p>
 
   <div class="verdict">
-    📄 <b>The honest headline first.</b> Extensive walk-forward testing — and now a live paper track record —
-    show A-MATS <b>does not beat buy-and-hold</b> on Indian large- and mid-caps. Timing and stock-selection do
-    not reliably add return over simply holding a basket. This site exists to <b>watch an agent think and learn
-    in the open</b>, and to hold that finding to an honest yardstick — not to sell an edge that markets don't give.
+    📄 <b>Paper trading, not advice.</b> Historical research did not establish a reliable edge.
+    The actual paper-account record begins with its funding date; older research outcomes are not account
+    returns. Positions are monitored only while a workflow is running, and GitHub schedules can be delayed.
   </div>
 
   <h2>How one scan works</h2>
@@ -110,49 +109,46 @@
   writes back its own memory, and republishes this site, with no human in the loop.</p>
   <div class="flow">
     <div class="fstep"><div class="ft"><span class="num">▶</span>Trigger</div>
-      <div class="fd">GitHub Actions cron — pre 08:45 · mid 11:30 (orders fill) · post 15:45 IST — or the manual “Run a scan” button on the dashboard.</div></div>
+      <div class="fd">GitHub Actions cron — three research sweeps and scheduled management runs — or the manual “Run a scan” button. Each run also checks the paper account.</div></div>
     <div class="farrow">▼</div>
     <div class="fstep"><div class="ft"><span class="num">1</span>Restore memory</div>
       <div class="fd">Check out the repo and load the agent's state from the last run.</div>
-      <span class="store">journal.db · benchmark.json · trade_validator.json</span></div>
+      <span class="store">realtime_portfolio.json · journal.db · benchmark.json · trade_validator.json</span></div>
     <div class="farrow">▼</div>
     <div class="fstep"><div class="ft"><span class="num">2</span>Screen the universe</div>
       <div class="fd">200+ NSE names → live Upstox prices → rank on trend, momentum &amp; support/resistance → a shortlist of the strongest setups.</div></div>
     <div class="farrow">▼</div>
-    <div class="fstep"><div class="ft"><span class="num">3</span>Resolve open trades</div>
-      <div class="fd">Mark every open position to the fresh price: stop → loss, target → win, past its horizon → expire at market. Nothing lingers unrecorded.</div>
-      <span class="store">→ outcomes to journal.db</span></div>
+    <div class="fstep"><div class="ft"><span class="num">3</span>Paper account and research outcomes</div>
+      <div class="fd">A bounded Upstox session marks the persistent paper account and processes eligible simulated orders. The separate research scan resolves journal ideas. Missing or stale quotes cannot create paper fills.</div>
+      <span class="store">→ realtime_portfolio.json (account) · journal.db (research)</span></div>
     <div class="farrow">▼</div>
     <div class="fstep"><div class="ft"><span class="num">4</span>Reason &amp; decide</div>
       <div class="fd">Each shortlisted name runs the pipeline — Market → News → Reasoning → Evaluate → Risk → Decision. The NN validator scores P(win); the LLM reasons only the strongest few (the rest are deterministic). One call per name.</div></div>
     <div class="farrow">▼</div>
     <div class="fstep"><div class="ft"><span class="num">5</span>Record everything</div>
-      <div class="fd">Journal the decision + its 13-feature fingerprint, mark the buy-and-hold benchmark, snapshot equity from realized P&amp;L, and snapshot the derived edge (insights).</div>
+      <div class="fd">Persist paper cash, fills, protection and marked equity before research. Journal research decisions, features and outcomes separately.</div>
       <span class="store">→ journal.db · benchmark.json</span></div>
     <div class="farrow">▼</div>
-    <div class="fstep loop"><div class="ft"><span class="num">↻</span>Learn (Fridays)</div>
-      <div class="fd">Retrain the NN validator on its own closed trades, so the gate that vetoes weak setups keeps sharpening on the trades it actually meets.</div>
-      <span class="store">→ trade_validator.json</span></div>
+    <div class="fstep loop"><div class="ft"><span class="num">↻</span>Learn (post-market)</div>
+      <div class="fd">Train a candidate on resolved research ideas. The active model stays unchanged until a separately reviewed promotion.</div>
+      <span class="store">→ trade_validator.candidate.json</span></div>
     <div class="farrow">▼</div>
     <div class="fstep pub"><div class="ft"><span class="num">⤴</span>Publish</div>
       <div class="fd">Build the site data, commit the updated memory back, and push — GitHub Pages redeploys this dashboard automatically.</div>
       <span class="store">docs/data.json · docs/nn.json</span></div>
     <div class="farrow">▼</div>
     <div class="fstep"><div class="ft"><span class="num">◉</span>You watch</div>
-      <div class="fd">The live dashboard, the NN-health page, and this story all read the same journal — the single source of truth.</div></div>
+      <div class="fd">The dashboard shows account equity and fills alongside clearly labelled research statistics. The NN page describes the active research validator.</div></div>
   </div>
 
   <h2>How it keeps itself honest</h2>
   <div class="card">
     <ul>
-      <li><span class="k">Fair benchmark.</span> Every equity number is shown against an equal-weight
-        <b>buy-and-hold</b> of the same basket, started at the same moment and cash.</li>
-      <li><span class="k">Real, persistent P&amp;L.</span> The equity curve is built from the journal's
-        <b>realized trade outcomes</b> (each modeled at 10% of starting capital), not a broker that resets —
-        so it can't flatter itself.</li>
-      <li><span class="k">Costs, not just prices.</span> Every closed trade is charged a modeled
-        <b>~0.2% round-trip cost</b> (brokerage + STT + a slippage allowance), so the equity and the
-        edge stats are <b>net of friction</b> — not a flattering gross price move.</li>
+      <li><span class="k">Account equity.</span> Cash plus marked positions in one persistent account.
+        Return is measured against its actual virtual starting balance. A matching account benchmark is not yet implemented.</li>
+      <li><span class="k">No invented history.</span> Research outcomes never become account fills or historical account equity.</li>
+      <li><span class="k">Costs.</span> Paper fills include configured commission and slippage.
+        Research edge statistics use a separate modeled 0.2% round-trip cost.</li>
       <li><span class="k">Small samples, said out loud.</span> A win-rate over a dozen trades is noise, not
         an edge. The dashboard shows the sample size and warns <i>“treat as directional, not proven”</i>
         rather than dressing up a coin flip as skill.</li>
@@ -169,14 +165,13 @@
   <h2>How it learns</h2>
   <p>A-MATS has no separate note-store. Its <b>memory is two things</b>: the journal (every decision and how it
   turned out — its experience) and a small neural-net validator whose weights are the lessons distilled from
-  that experience. As paper trades close, they become training examples; a weekly job folds that lived
-  experience into the gate that vetoes weak setups. Early on it leans on a backtest bootstrap; over time its
-  own history takes over. Honest scope: this sharpens <i>selectivity and survival</i> — it does not conjure an
-  edge an efficient market won't give.</p>
+  that experience. Resolved research ideas supply training examples for candidate models.
+  Paper-account fills are recorded separately and are not yet inputs to this training dataset.
+  Retraining does not automatically replace the active model.</p>
 
   <h2>What you're looking at</h2>
   <p>The <a href="./">live dashboard</a> updates itself as the agent scans — today's activity, open positions
-  with their thesis, the agent-vs-hold equity curve, and what it has learned. The
+  from its published account, its actual equity curve, and what it has learned from research. The
   <a href="./nn.html">neural-net health</a> page opens up the validator: its weights, feature influence, and an
   in-browser predictor. Everything is a virtual ₹1,00,000 book — <b>paper trading, not advice.</b></p>
 

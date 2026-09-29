@@ -1,0 +1,45 @@
+{
+  "starting_cash": 100000.0,
+  "cash": 100000.0,
+  "seq": 0,
+  "runtime": {
+    "protection": {},
+    "entered": {},
+    "halt": "",
+    "peak": 100000.0,
+    "months": {
+      "2026-09": {
+        "opening_equity": 100000.0,
+        "equity": 100000.0,
+        "ts": "2026-09-29T11:05:00.925681+00:00"
+      }
+    },
+    "daily_equity": {
+      "2026-09-29": {
+        "ts": "2026-09-29T11:05:00.925681+00:00",
+        "equity": 100000.0,
+        "return_percent": 0.0
+      }
+    },
+    "funded_at": "2026-09-29T11:04:59.562915+00:00",
+    "last_snapshot": {
+      "currency": "INR",
+      "starting_cash": 100000.0,
+      "cash": 100000.0,
+      "positions_value": 0.0,
+      "equity": 100000.0,
+      "realized_pnl": 0,
+      "fees_paid": 0,
+      "unrealized_pnl": 0.0,
+      "total_pnl": 0.0,
+      "return_percent": 0.0,
+      "open_positions": [],
+      "trade_count": 0
+    },
+    "last_mark_ts": "2026-09-29T11:05:00.925681+00:00",
+    "last_equity": 100000.0,
+    "last_mark_seq": 0
+  },
+  "positions": {},
+  "trades": []
+}

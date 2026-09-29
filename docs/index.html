@@ -150,7 +150,7 @@
     <div class="brand">A-MATS<span>autonomous paper agent · NSE</span></div>
     <div class="live"><span class="dot"></span><span id="updated">connecting…</span></div>
   </header>
-  <div class="sub">Cloud research scans and learning · paper-account snapshots from the continuous runner.</div>
+  <div class="sub">Cloud research scans and learning · one persistent paper account, updated by scheduled GitHub runs.</div>
   <div class="note">📄 <b>Paper trading, not advice.</b> Extensive testing shows it does <b>not beat buy-and-hold</b> — run it to watch an agent reason &amp; learn, not for returns.</div>
 
   <div class="nav">
@@ -220,6 +220,7 @@
   <div class="card">
     <h2>Paper-account equity <span class="mono" style="color:var(--muted);font-weight:400" id="eqmeta"></span></h2>
     <p class="sub" id="accountStatus"></p>
+    <p class="sub" id="runnerStatus"></p>
     <div class="chart" id="chart"></div>
   </div>
 
@@ -278,6 +279,7 @@ function tiles(s,eq){
   const t=[
     ['Paper equity',last.equity==null?'—':inr(last.equity),C.fg],
     ['Paper return',ret==null?'—':(ret>=0?'+':'')+ret.toFixed(2)+'%',ret>0?C.green:ret<0?C.red:C.fg],
+    ['Paper fills',(DATA.summary?.paper_account?.trades||[]).length,C.fg],
     ['Research win rate',s.win_rate_pct==null?'—':s.win_rate_pct+'%',C.fg],
     ['Research open',s.open,C.fg],
     ['Decisions',s.decisions,C.fg],
@@ -289,13 +291,14 @@ function tiles(s,eq){
 
 function chart(eq){
   const el=document.getElementById('chart'); el.innerHTML='';
-  if(eq.length<2){el.innerHTML='<div class="empty">'+(eq.length?'One daily equity snapshot recorded. The chart needs a second day.':'No published paper-account history yet. Run the continuous paper runner and publish its snapshots.')+'</div>';return;}
+  if(!eq.length){el.innerHTML='<div class="empty">No published paper-account history yet. Check the latest GitHub workflow.</div>';return;}
   const W=el.clientWidth,H=el.clientHeight,P={t:10,r:12,b:18,l:46};
   const pts=eq.map((p,i)=>({i,v:p.equity,b:(typeof p.benchmark==='number'?p.benchmark:null),ts:p.ts}));
   const hasB=pts.some(p=>p.b!==null);
   const vals=pts.flatMap(p=>p.b!==null?[p.v,p.b]:[p.v]);
-  const lo=Math.min(...vals),hi=Math.max(...vals),span=(hi-lo)||1;
-  const x=i=>P.l+(i/(pts.length-1))*(W-P.l-P.r);
+  const pad=Math.max((Math.max(...vals)-Math.min(...vals))*.08,1);
+  const lo=Math.min(...vals)-pad,hi=Math.max(...vals)+pad,span=hi-lo;
+  const x=i=>P.l+(pts.length===1 ? 0.5 : i/(pts.length-1))*(W-P.l-P.r);
   const y=v=>P.t+(hi-v)/span*(H-P.t-P.b);
   const up=pts[pts.length-1].v>=pts[0].v, col=up?C.green:C.red;
   const d=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(p.v).toFixed(1)).join(' ');
@@ -309,6 +312,7 @@ function chart(eq){
     ${grid}<path d="${area}" fill="url(#g)"/>
     ${bd?`<path d="${bd}" fill="none" stroke="${C.muted}" stroke-width="1.25" stroke-dasharray="4 3" opacity="0.85"/>`:''}
     <path d="${d}" fill="none" stroke="${col}" stroke-width="1.8"/>
+    ${pts.length===1?`<circle cx="${x(0)}" cy="${y(pts[0].v)}" r="4" fill="${col}"/><text x="${x(0)}" y="${y(pts[0].v)-12}" text-anchor="middle" fill="${C.fg}" font-size="12">${inr(pts[0].v)} · first account snapshot</text>`:''}
     <g id="cross" style="display:none"><line stroke="${C.muted}" stroke-dasharray="3 3"/><circle r="3.5" fill="${col}" stroke="#131824" stroke-width="1.5"/></g></svg>`;
   const svg=el.querySelector('#svg'),cross=el.querySelector('#cross'),line=cross.querySelector('line'),dotc=cross.querySelector('circle');
   let tt=el.querySelector('.tt'); if(!tt){tt=document.createElement('div');tt.className='tt';el.appendChild(tt);}
@@ -392,7 +396,7 @@ function summaryPanel(s){
   document.getElementById('slearn').innerHTML=(last
     ? `Last retrain: <span class="mono">${esc(last.note)}</span>${last.oos_auc!=null?` · OOS AUC <span class="mono">${last.oos_auc}</span>`:''}`
     : 'Nothing learned from its own trades yet — it needs closed trades first.')
-    +`<div class="mut" style="margin-top:3px">${L.experience_available||0} of its own trades available to learn from · model ${mdl.available?('updated '+(mdl.updated_at||'').slice(0,10)):'not built'}</div>`;
+    +`<div class="mut" style="margin-top:3px">${L.experience_available||0} resolved research ideas available to learn from · model ${mdl.available?('updated '+(mdl.updated_at||'').slice(0,10)):'not built'}</div>`;
   document.getElementById('smem').innerHTML=
     `<span class="mut">${esc(M.what_it_is||'')}</span>`
     +`<div class="mono" style="margin-top:3px">journal: ${M.journal_decisions_total||0} decisions · ${M.journal_experiences||0} experiences · weights: ${esc(M.model_path||'')}</div>`;
@@ -450,8 +454,15 @@ function render(){
   summaryPanel(DATA.summary);
   const account=DATA.summary?.paper_account||{};
   document.getElementById('accountStatus').textContent=account.available
-    ? 'Last complete account mark: '+new Date(account.as_of).toLocaleString('en-IN')+' · Published snapshot, not a live feed.'
+    ? (account.funded_at?'Account started '+new Date(account.funded_at).toLocaleDateString('en-IN')+'. ':'')+'Last complete account mark: '+new Date(account.as_of).toLocaleString('en-IN')+' · Published snapshot, not a live feed.'
     : (account.reason||'No complete paper-account mark available.')+' Equity and returns are unavailable; research decisions are not portfolio results.';
+  const runner=account.runner;
+  document.getElementById('runnerStatus').textContent=runner
+    ? 'Last paper session: '+new Date(runner.heartbeat).toLocaleString('en-IN')+' · '+runner.event
+      +' · '+(runner.fresh_symbols_received||[]).length+' symbols supplied fresh ticks.'
+      +(runner.preparation_errors?.length?' History unavailable for '+runner.preparation_errors.length+' symbols.':'')
+      +' Positions are monitored only during scheduled runs; schedules may be delayed.'
+    : 'Account funded with virtual cash. The next scheduled market session will collect fresh prices.';
   tiles(DATA.stats,DATA.equity);
   const hasB=(DATA.equity||[]).some(p=>typeof p.benchmark==='number');
   document.getElementById('eqmeta').innerHTML=(DATA.equity.length?`· ${DATA.equity.length} snapshots`:'')

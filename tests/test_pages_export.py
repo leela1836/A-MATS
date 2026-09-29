@@ -9,6 +9,7 @@ def test_cloud_build_preserves_published_account_and_local_export_replaces_it(tm
     account_path = tmp_path / 'account.json'
     monkeypatch.setattr(accounting, 'ACCOUNT', account_path)
     monkeypatch.setattr(build_site, 'DOCS', tmp_path)
+    monkeypatch.setattr('app.execution.realtime.STATUS', tmp_path / 'status.json')
     assert not build_site._paper_account()['available']
     stamp = datetime.now(timezone.utc).isoformat()
     account_path.write_text(json.dumps({

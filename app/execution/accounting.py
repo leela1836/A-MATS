@@ -35,6 +35,7 @@ def paper_report(path: Path | None = None) -> dict:
         if state.get("last_mark_seq") != raw.get("seq"):
             last = None  # crash between a fill and its equity snapshot: fail closed
         return {**empty, "available": last is not None, "portfolio": last or empty["portfolio"],
+                "funded_at": state.get("funded_at"),
                 "as_of": state.get("last_mark_ts"),
                 "mark_age_seconds": ((datetime.now(timezone.utc) - datetime.fromisoformat(
                     state["last_mark_ts"])).total_seconds() if state.get("last_mark_ts") else None),

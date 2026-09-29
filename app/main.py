@@ -42,7 +42,8 @@ def realtime_status() -> dict:
     try:
         report = json.loads(STATUS.read_text(encoding="utf-8"))
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(report["heartbeat"])).total_seconds()
-        return {**report, "running": 0 <= age <= 30, "heartbeat_age_seconds": round(age, 1)}
+        return {**report, "running": report.get("execution_mode") != "scheduled" and 0 <= age <= 30,
+                "heartbeat_age_seconds": round(age, 1)}
     except (ValueError, KeyError, OSError):
         raise HTTPException(status_code=503, detail="Realtime status unavailable")
 

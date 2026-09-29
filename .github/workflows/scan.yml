@@ -4,7 +4,7 @@ name: A-MATS market scan
 #  • 3 heavy SCREEN sweeps/day (pre / mid / post) find new trades, learn, publish.
 #  • A light MANAGE loop every 10 min during the session re-prices OPEN trades and
 #    exits any that hit a level, broke their thesis, or expired — the "near-live"
-#    position management. Manage ticks only commit when they actually close a trade.
+#    position management. Each run also restores, marks and saves the paper account.
 #
 # GitHub cron is UTC. NSE trades ~09:15-15:30 IST (UTC+5:30):
 #   03:15 UTC = 08:45 IST → pre-open · 06:00 → mid · 10:15 → post-close
@@ -12,6 +12,13 @@ name: A-MATS market scan
 # minutes under load; holidays journal "market closed" (the calendar guard handles it).
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/scan.yml'
+      - 'app/execution/cloud.py'
+      - 'configs/**'
+      - 'requirements-realtime.txt'
   schedule:
     - cron: "15 3 * * 1-5"      # 08:45 IST — pre-open plan (SCREEN)
     - cron: "0 6 * * 1-5"       # 11:30 IST — mid-session, orders fill (SCREEN)
@@ -31,11 +38,14 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       publish: ${{ steps.publish.outputs.publish }}
       revision: ${{ steps.publish.outputs.revision }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - uses: actions/setup-python@v5
         with:
@@ -43,7 +53,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-realtime.txt
 
       - name: Label the run (session + mode)
         run: |
@@ -55,7 +65,30 @@ jobs:
             *)                   echo "SCAN_SESSION=manual" >> "$GITHUB_ENV"; echo "SCAN_MODE=screen"  >> "$GITHUB_ENV" ;;
           esac
 
-      - name: Run (screen finds trades · manage watches open trades)
+      - name: Restore and run the persistent paper account
+        id: paper
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
+        run: python -m app.execution.cloud --seconds 60
+
+      - name: Persist the paper account before running research
+        run: |
+          python -c "from app.status.build_site import _paper_account; _paper_account()"
+          git config user.name "amats-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/realtime_portfolio.json docs/paper.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(paper): persist scheduled account session [skip ci]"
+            git pull --rebase --autostash origin "${{ github.ref_name }}"
+            git push
+          fi
+
+      - name: Run (screen finds research ideas · manage resolves research ideas)
+        id: research
+        continue-on-error: true
+        timeout-minutes: 10
         env:
           # Real market data from the cloud (Upstox Analytics Token as a repo secret).
           UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
@@ -68,17 +101,9 @@ jobs:
         run: |
           OUT=$(python -m app.journal.scan)
           echo "$OUT"
-          # A manage tick that closed nothing changes no data — skip publish to
-          # keep the committed journal from churning every 10 minutes.
-          if [ "${SCAN_MODE}" = "manage" ]; then
-            CLOSED=$(printf '%s' "$OUT" | python -c "import sys,json;print(json.load(sys.stdin).get('closed',0))" 2>/dev/null || echo 1)
-            [ "$CLOSED" = "0" ] && echo "PUBLISH=0" >> "$GITHUB_ENV" || echo "PUBLISH=1" >> "$GITHUB_ENV"
-          else
-            echo "PUBLISH=1" >> "$GITHUB_ENV"
-          fi
 
       - name: Regenerate training data from the universe (weekly — Friday post)
-        if: env.PUBLISH == '1' && env.SCAN_SESSION == 'post'
+        if: env.SCAN_SESSION == 'post'
         run: |
           if [ "$(date -u +%u)" = "5" ]; then
             echo "backtesting the universe into a fresh labeled dataset"
@@ -88,26 +113,25 @@ jobs:
           fi
 
       - name: Learn from experience (daily — post-market)
-        if: env.PUBLISH == '1' && env.SCAN_SESSION == 'post'
+        if: env.SCAN_SESSION == 'post'
         run: |
           echo "retraining validator on accumulated journal + bootstrap"
           python -m app.ml.learn || echo "learn skipped (not enough data yet)"
 
       - name: Update strategy roster (promote/demote on live results — post-market)
-        if: env.PUBLISH == '1' && env.SCAN_SESSION == 'post'
+        if: env.SCAN_SESSION == 'post'
         run: python -m app.strategies.library.roster || echo "roster unchanged"
 
       - name: Build the status site (GitHub Pages)
-        if: env.PUBLISH == '1'
         run: python -m app.status.build_site
 
       - name: Commit the journal, model, and site data
         id: publish
-        if: env.PUBLISH == '1'
         run: |
           git config user.name "amats-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f data/journal.db data/benchmark.json app/ml/models/trade_validator.json docs/data.json docs/nn.json
+          git add -f data/realtime_portfolio.json docs/paper.json
           [ -f data/bootstrap.npz ] && git add -f data/bootstrap.npz || true
           [ -f data/strategy_roster.json ] && git add -f data/strategy_roster.json || true
           if git diff --cached --quiet; then
@@ -120,9 +144,13 @@ jobs:
           echo "publish=1" >> "$GITHUB_OUTPUT"
           echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Surface processing failures after saving and publishing account state
+        if: steps.paper.outcome == 'failure' || steps.research.outcome == 'failure'
+        run: exit 1
+
   pages:
     needs: scan
-    if: needs.scan.outputs.publish == '1'
+    if: always() && needs.scan.outputs.publish == '1'
     uses: ./.github/workflows/pages.yml
     with:
       revision: ${{ needs.scan.outputs.revision }}

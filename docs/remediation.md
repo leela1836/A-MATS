@@ -65,5 +65,6 @@ their presence is not approval or evidence of edge. Before any real-money consid
 freeze a candidate and evaluate a new prospective paper period against a matching
 benchmark, recording costs, drawdown and losing months without tuning on that period.
 
-See [runner setup](realtime-paper.md). The runner is not installed as a background
-service; starting it requires keeping the local process running.
+See [runner setup](realtime-paper.md). GitHub now runs bounded paper sessions and
+persists their account. The local continuous runner is not installed as a background
+service; uninterrupted observation requires keeping that process running on a host.

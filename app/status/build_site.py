@@ -24,6 +24,10 @@ def _paper_account() -> dict:
         published.write_text(json.dumps(account), encoding="utf-8")
     elif published.exists():
         account = json.loads(published.read_text(encoding="utf-8"))
+    from app.execution.realtime import STATUS
+    if STATUS.exists():
+        account["runner"] = json.loads(STATUS.read_text(encoding="utf-8"))
+        published.write_text(json.dumps(account), encoding="utf-8")
     if account.get("as_of"):
         account["mark_age_seconds"] = (datetime.now(timezone.utc) - datetime.fromisoformat(account["as_of"])).total_seconds()
     return account
